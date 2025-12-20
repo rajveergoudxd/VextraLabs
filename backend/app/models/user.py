@@ -10,3 +10,16 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     profile_picture = Column(String, nullable=True)
+    username = Column(String, unique=True, index=True, nullable=True) # Optional initially
+    bio = Column(String, nullable=True)
+    
+    # Social Links
+    instagram = Column(String, nullable=True)
+    linkedin = Column(String, nullable=True)
+    twitter = Column(String, nullable=True)
+    facebook = Column(String, nullable=True)
+
+    # Stats
+    posts_count = Column(Integer, default=0)
+    followers_count = Column(Integer, default=0)
+    following_count = Column(Integer, default=0)

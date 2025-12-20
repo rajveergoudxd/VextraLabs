@@ -9,6 +9,15 @@ class User {
   final String fullName;
   final bool isActive;
   final String? profilePicture;
+  final String? username;
+  final String? bio;
+  final String? instagram;
+  final String? linkedin;
+  final String? twitter;
+  final String? facebook;
+  final int postsCount;
+  final int followersCount;
+  final int followingCount;
 
   User({
     required this.id,
@@ -16,6 +25,15 @@ class User {
     required this.fullName,
     required this.isActive,
     this.profilePicture,
+    this.username,
+    this.bio,
+    this.instagram,
+    this.linkedin,
+    this.twitter,
+    this.facebook,
+    this.postsCount = 0,
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -25,6 +43,15 @@ class User {
       fullName: json['full_name'] ?? '',
       isActive: json['is_active'] ?? true,
       profilePicture: json['profile_picture'],
+      username: json['username'],
+      bio: json['bio'],
+      instagram: json['instagram'],
+      linkedin: json['linkedin'],
+      twitter: json['twitter'],
+      facebook: json['facebook'],
+      postsCount: json['posts_count'] ?? 0,
+      followersCount: json['followers_count'] ?? 0,
+      followingCount: json['following_count'] ?? 0,
     );
   }
 }
@@ -93,6 +120,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.signup(email, password, fullName);
       // Removed auto-login: User needs to verify OTP first
+      _setLoading(false);
       return true;
     } catch (e) {
       _error = e.toString();
@@ -148,12 +176,28 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateProfile({String? fullName, String? profilePicture}) async {
+  Future<bool> updateProfile({
+    String? fullName,
+    String? profilePicture,
+    String? username,
+    String? bio,
+    String? instagram,
+    String? linkedin,
+    String? twitter,
+    String? facebook,
+  }) async {
     _setLoading(true);
     try {
+      // Calling AuthService with named arguments
       final userData = await _authService.updateProfile(
         fullName: fullName,
         profilePicture: profilePicture,
+        username: username,
+        bio: bio,
+        instagram: instagram,
+        linkedin: linkedin,
+        twitter: twitter,
+        facebook: facebook,
       );
       _user = User.fromJson(userData);
       _setLoading(false);

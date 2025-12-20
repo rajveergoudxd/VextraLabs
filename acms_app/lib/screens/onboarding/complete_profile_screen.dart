@@ -17,6 +17,8 @@ class CompleteProfileScreen extends StatefulWidget {
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _bioController = TextEditingController();
   final _picker = ImagePicker();
   File? _imageFile;
   bool _isUploading = false;
@@ -32,10 +34,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
+    final username = _usernameController.text.trim();
+    final bio = _bioController.text.trim();
 
-    if (firstName.isEmpty || lastName.isEmpty) {
+    if (firstName.isEmpty || lastName.isEmpty || username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter first and last name')),
+        const SnackBar(content: Text('Please fill in all required fields')),
       );
       return;
     }
@@ -54,9 +58,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             context,
           ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
         }
-        // Continue without image or return? Let's continue but warn.
-        // Or better, stop. But for UX, maybe just continue without pic is fine if it fails?
-        // Let's return to allow retry.
         setState(() => _isUploading = false);
         return;
       }
@@ -65,6 +66,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     final success = await authProvider.updateProfile(
       fullName: fullName,
       profilePicture: profilePictureUrl,
+      username: username,
+      bio: bio,
     );
 
     if (!mounted) return;
@@ -94,6 +97,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _usernameController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 
@@ -112,6 +117,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // ... existing header code ...
                   IconButton(
                     onPressed: () => context
                         .pop(), // Optional, maybe shouldn't go back from onboarding
@@ -161,7 +167,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       textAlign: TextAlign.center,
                     ),
 
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 32),
 
                     // Profile Pic
                     Stack(
@@ -227,13 +233,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         color: isDark ? Colors.white : AppColors.textMain,
                       ),
                     ),
-                    Text(
-                      "(Optional)",
-                      style: TextStyle(
-                        color: isDark ? Colors.red[200] : AppColors.primary,
-                        fontSize: 14,
-                      ),
-                    ),
 
                     const SizedBox(height: 32),
 
@@ -251,6 +250,23 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       "Doe",
                       controller: _lastNameController,
                       isDark: isDark,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      context,
+                      "Username",
+                      "@janedoe",
+                      controller: _usernameController,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      context,
+                      "Bio",
+                      "Tell us about yourself...",
+                      controller: _bioController,
+                      isDark: isDark,
+                      maxLines: 3,
                     ),
 
                     const SizedBox(height: 48),
@@ -301,6 +317,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     String placeholder, {
     required TextEditingController controller,
     required bool isDark,
+    int maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,6 +333,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          maxLines: maxLines,
           decoration: InputDecoration(
             hintText: placeholder,
             hintStyle: TextStyle(
@@ -341,7 +359,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary),
             ),
-            suffixIcon: const Icon(Icons.mic, color: Colors.grey),
           ),
         ),
       ],

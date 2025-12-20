@@ -29,6 +29,7 @@ import 'package:acms_app/screens/create/ai_generation_screen.dart';
 import 'package:acms_app/screens/create/review_publish_screen.dart';
 import 'package:acms_app/screens/create/published_success_screen.dart';
 import 'package:acms_app/screens/profile/profile_screen.dart';
+import 'package:acms_app/screens/profile/edit_profile_screen.dart';
 import 'package:acms_app/screens/settings/settings_screen.dart';
 import 'package:acms_app/screens/voice_chat/voice_chat_screen.dart';
 import 'package:acms_app/screens/splash_screen.dart';
@@ -227,6 +228,13 @@ class AcmsApp extends StatelessWidget {
           parentNavigatorKey: _rootNavigatorKey,
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+
+        // ---- Edit Profile (Full Screen) ----
+        GoRoute(
+          parentNavigatorKey: _rootNavigatorKey,
+          path: '/edit-profile',
+          builder: (context, state) => const EditProfileScreen(),
         ),
 
         // ---- Notifications (Full Screen) ----

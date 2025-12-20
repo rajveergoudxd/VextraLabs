@@ -91,6 +91,12 @@ class AuthService {
   Future<Map<String, dynamic>> updateProfile({
     String? fullName,
     String? profilePicture,
+    String? username,
+    String? bio,
+    String? instagram,
+    String? linkedin,
+    String? twitter,
+    String? facebook,
   }) async {
     try {
       final response = await _dio.put(
@@ -98,6 +104,12 @@ class AuthService {
         data: {
           if (fullName != null) 'full_name': fullName,
           if (profilePicture != null) 'profile_picture': profilePicture,
+          if (username != null) 'username': username,
+          if (bio != null) 'bio': bio,
+          if (instagram != null) 'instagram': instagram,
+          if (linkedin != null) 'linkedin': linkedin,
+          if (twitter != null) 'twitter': twitter,
+          if (facebook != null) 'facebook': facebook,
         },
       );
       return response.data;

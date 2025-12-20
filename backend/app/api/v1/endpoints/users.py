@@ -17,10 +17,9 @@ def update_user_me(
     """
     Update own user.
     """
-    if user_in.full_name is not None:
-        current_user.full_name = user_in.full_name
-    if user_in.profile_picture is not None:
-        current_user.profile_picture = user_in.profile_picture
+    user_data = user_in.model_dump(exclude_unset=True)
+    for field, value in user_data.items():
+        setattr(current_user, field, value)
         
     db.add(current_user)
     db.commit()
