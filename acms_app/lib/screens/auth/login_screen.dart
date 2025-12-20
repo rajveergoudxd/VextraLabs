@@ -27,7 +27,17 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success) {
-      if (mounted) router.go('/home');
+      if (mounted) {
+        // Check if profile is complete (e.g. has full name/picture)
+        // We can access user via authProvider.user
+        final user = authProvider.user;
+        if (user != null &&
+            (user.fullName.isEmpty || user.fullName == "New User")) {
+          router.go('/complete-profile');
+        } else {
+          router.go('/home');
+        }
+      }
     } else {
       if (!mounted) return;
       // Get friendly error message

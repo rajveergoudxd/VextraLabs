@@ -13,6 +13,11 @@ import 'package:acms_app/screens/onboarding/gallery_permission_screen.dart';
 import 'package:acms_app/screens/onboarding/mic_permission_screen.dart';
 import 'package:acms_app/screens/onboarding/connect_social_screen.dart';
 import 'package:acms_app/screens/onboarding/setup_complete_screen.dart';
+import 'package:acms_app/screens/auth/forgot_password_screen.dart';
+import 'package:acms_app/screens/auth/verify_otp_screen.dart';
+import 'package:acms_app/screens/auth/set_new_password_screen.dart';
+import 'package:acms_app/screens/onboarding/complete_profile_screen.dart';
+import 'package:acms_app/screens/onboarding/onboarding_success_screen.dart';
 import 'package:acms_app/screens/home/home_screen.dart';
 import 'package:acms_app/screens/notifications/notifications_screen.dart';
 import 'package:acms_app/screens/create/select_mode_screen.dart';
@@ -130,6 +135,38 @@ class AcmsApp extends StatelessWidget {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
+          path: '/verify-otp',
+          builder: (context, state) {
+            final args = state.extra as Map<String, dynamic>;
+            return VerifyOtpScreen(
+              email: args['email'] as String,
+              purpose: args['purpose'] as String,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/reset-password',
+          builder: (context, state) {
+            final args = state.extra as Map<String, dynamic>;
+            return SetNewPasswordScreen(
+              email: args['email'] as String,
+              code: args['code'] as String,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/complete-profile',
+          builder: (context, state) => const CompleteProfileScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding-success',
+          builder: (context, state) => const OnboardingSuccessScreen(),
         ),
         GoRoute(
           path: '/onboarding/gallery',

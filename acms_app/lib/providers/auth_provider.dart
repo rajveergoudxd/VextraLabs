@@ -8,12 +8,14 @@ class User {
   final String email;
   final String fullName;
   final bool isActive;
+  final String? profilePicture;
 
   User({
     required this.id,
     required this.email,
     required this.fullName,
     required this.isActive,
+    this.profilePicture,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,7 @@ class User {
       email: json['email'],
       fullName: json['full_name'] ?? '',
       isActive: json['is_active'] ?? true,
+      profilePicture: json['profile_picture'],
     );
   }
 }
@@ -89,8 +92,73 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _authService.signup(email, password, fullName);
-      // Auto login after signup
-      return await login(email, password);
+      // Removed auto-login: User needs to verify OTP first
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    _setLoading(true);
+    try {
+      await _authService.forgotPassword(email, purpose: 'reset_password');
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp(
+    String email,
+    String code, {
+    String purpose = 'signup',
+  }) async {
+    _setLoading(true);
+    try {
+      await _authService.verifyOtp(email, code, purpose: purpose);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    _setLoading(true);
+    try {
+      await _authService.resetPassword(email, code, newPassword);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> updateProfile({String? fullName, String? profilePicture}) async {
+    _setLoading(true);
+    try {
+      final userData = await _authService.updateProfile(
+        fullName: fullName,
+        profilePicture: profilePicture,
+      );
+      _user = User.fromJson(userData);
+      _setLoading(false);
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
       _setLoading(false);

@@ -43,7 +43,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
 
     if (success) {
-      router.go('/home');
+      // Navigate to OTP verification
+      router.push(
+        '/verify-otp',
+        extra: {'email': _emailController.text.trim(), 'purpose': 'signup'},
+      );
     } else {
       scaffoldMessenger.showSnackBar(
         SnackBar(

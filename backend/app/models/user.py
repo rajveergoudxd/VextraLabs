@@ -9,3 +9,4 @@ class User(Base):
     full_name = Column(String, index=True)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    profile_picture = Column(String, nullable=True)

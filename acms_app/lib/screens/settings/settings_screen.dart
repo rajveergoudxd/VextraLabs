@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/theme/theme_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import 'package:acms_app/providers/auth_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -248,7 +250,10 @@ class SettingsScreen extends StatelessWidget {
 
             // Logout
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                context.read<AuthProvider>().logout();
+                context.go('/');
+              },
               icon: const Icon(Icons.logout),
               label: const Text('Log Out'),
               style: OutlinedButton.styleFrom(

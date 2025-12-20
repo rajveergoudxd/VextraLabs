@@ -11,10 +11,17 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr
     password: str
+    full_name: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    profile_picture: Optional[str] = None
+
 
 # Properties to return via API
 class User(UserBase):
     id: int
+    profile_picture: Optional[str] = None
     
     class Config:
         from_attributes = True

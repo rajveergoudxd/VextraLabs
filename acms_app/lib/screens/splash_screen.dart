@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 1),
     );
 
     _fadeAnimation = Tween<double>(
@@ -36,30 +36,37 @@ class _SplashScreenState extends State<SplashScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _controller.forward();
+    _handleNavigation();
+  }
 
-    // Check auth state when initialized
+  Future<void> _handleNavigation() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    void checkAuth() {
-      if (authProvider.isInitialized) {
-        if (authProvider.isAuthenticated) {
-          context.go('/home');
-        } else {
-          context.go('/');
-        }
-      }
-    }
+    // Wait for minimum 1 second animation AND auth initialization
+    await Future.wait([
+      Future.delayed(const Duration(seconds: 1)),
+      _waitForAuth(authProvider),
+    ]);
 
-    if (authProvider.isInitialized) {
-      // Small delay for animation smoothnes
-      Future.delayed(const Duration(seconds: 2), checkAuth);
+    if (!mounted) return;
+
+    if (authProvider.isAuthenticated) {
+      context.go('/home');
     } else {
-      // Wait for initialization
-      authProvider.addListener(() {
-        if (authProvider.isInitialized && mounted) {
-          Future.delayed(const Duration(seconds: 2), checkAuth);
-        }
-      });
+      context.go('/');
+    }
+  }
+
+  Future<void> _waitForAuth(AuthProvider authProvider) async {
+    if (authProvider.isInitialized) return;
+
+    // We can rely on the fact that AuthProvider notifies listeners when initialized
+    // But since we are in a async method, we can poll or use a completer mechanism attached to listener.
+    // Simplifying: Just poll until initialized since it should be very fast usually.
+    // Or better: Use a stream or just check periodically.
+
+    while (!authProvider.isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 

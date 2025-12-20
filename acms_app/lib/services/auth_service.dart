@@ -41,6 +41,71 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> forgotPassword(
+    String email, {
+    String purpose = 'reset_password',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/forgot-password',
+        data: {'email': email, 'purpose': purpose},
+      );
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyOtp(
+    String email,
+    String code, {
+    String purpose = 'signup',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/verify-otp',
+        data: {'email': email, 'code': code, 'purpose': purpose},
+      );
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/auth/reset-password',
+        data: {'email': email, 'code': code, 'new_password': newPassword},
+      );
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? profilePicture,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/users/me',
+        data: {
+          if (fullName != null) 'full_name': fullName,
+          if (profilePicture != null) 'profile_picture': profilePicture,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getMe() async {
     try {
       final response = await _dio.get('/auth/me');
