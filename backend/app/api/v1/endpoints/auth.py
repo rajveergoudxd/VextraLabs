@@ -77,7 +77,17 @@ async def create_user_signup(
     db.add(otp_entry)
     db.commit()
 
-    await EmailService.send_otp_email(user_in.email, otp_code, purpose="signup")
+    try:
+        await EmailService.send_otp_email(user_in.email, otp_code, purpose="signup")
+    except Exception as e:
+        # Rollback if email fails
+        db.delete(otp_entry)
+        db.delete(user)
+        db.commit()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send verification email. Please try again later."
+        )
     
     return user
 
