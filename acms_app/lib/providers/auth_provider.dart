@@ -166,6 +166,14 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<String> uploadImage(dynamic file) async {
+    try {
+      return await _authService.uploadProfilePicture(file);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: 'access_token');
     _user = null;

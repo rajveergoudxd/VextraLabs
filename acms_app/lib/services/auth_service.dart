@@ -115,6 +115,22 @@ class AuthService {
     }
   }
 
+  Future<String> uploadProfilePicture(dynamic file) async {
+    try {
+      // file can be File (mobile) or XFile (web/mobile)
+      // handling FormData manually
+      String fileName = file.path.split('/').last;
+      FormData formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+
+      final response = await _dio.post('/upload/', data: formData);
+      return response.data['url'];
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   String _handleError(dynamic error) {
     if (error is DioException) {
       if (error.response != null) {

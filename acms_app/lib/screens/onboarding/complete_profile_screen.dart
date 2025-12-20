@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
 
@@ -14,6 +17,14 @@ class CompleteProfileScreen extends StatefulWidget {
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _picker = ImagePicker();
+  File? _imageFile;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _handleContinue() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -30,11 +41,34 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
 
     final fullName = '$firstName $lastName';
+
+    // Upload image if selected
+    String? profilePictureUrl;
+    if (_imageFile != null) {
+      setState(() => _isUploading = true);
+      try {
+        profilePictureUrl = await authProvider.uploadImage(_imageFile!);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
+        }
+        // Continue without image or return? Let's continue but warn.
+        // Or better, stop. But for UX, maybe just continue without pic is fine if it fails?
+        // Let's return to allow retry.
+        setState(() => _isUploading = false);
+        return;
+      }
+    }
+
     final success = await authProvider.updateProfile(
       fullName: fullName,
-    ); // TODO: Add profile picture
+      profilePicture: profilePictureUrl,
+    );
 
     if (!mounted) return;
+    setState(() => _isUploading = false);
 
     if (success) {
       router.go('/onboarding-success');
@@ -44,6 +78,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           content: Text(authProvider.error ?? 'Failed to update profile'),
         ),
       );
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
     }
   }
 
@@ -124,43 +167,52 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     Stack(
                       children: [
                         Container(
-                          width: 128,
-                          height: 128,
+                          width: 120,
+                          height: 120,
                           decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.surfaceDark
+                                : Colors.grey[200],
                             shape: BoxShape.circle,
-                            color: Colors.grey[200],
                             border: Border.all(
-                              color: isDark ? Colors.white24 : Colors.white,
-                              width: 4,
+                              color: isDark
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[300]!,
+                              width: 2,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                              ),
-                            ],
-                            image: const DecorationImage(
-                              // Placeholder
-                              image: NetworkImage(
-                                "https://lh3.googleusercontent.com/aida-public/AB6AXuAYUnTpjcQ7Xpj0p_tdLLKxDHs1pCbwVCPQQlqAAWFj-6csD9L6QiEYXM6DrGQm_WFr4uCYsAbnlCo8ARjB4u_ZNvApBLW6cGx2uObw9nbeszAB7xcrFMl_qfxl93ExRyK5Ce03iTfcaU-LlPvasvzAbvHVkNSJ8MTKNE7h8oDub-5oKtMiRjRWCaYicmk7tdF4Q__3BuruxHZ4iygQmzlpJoCB7n2wbKTwQp9uXLKqM2xG_BTqNJjrnzeSsRJaqvme6xUk8WfvS0k",
-                              ),
-                              fit: BoxFit.cover,
-                            ),
+                            image: _imageFile != null
+                                ? DecorationImage(
+                                    image: FileImage(_imageFile!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
+                          child: _imageFile == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400],
+                                )
+                              : null,
                         ),
                         Positioned(
-                          bottom: 4,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 20,
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _pickImage,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ),
                         ),
@@ -218,7 +270,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           ),
                           elevation: 4,
                         ),
-                        child: authProvider.isLoading
+                        child: authProvider.isLoading || _isUploading
                             ? const CircularProgressIndicator(
                                 color: Colors.white,
                               )

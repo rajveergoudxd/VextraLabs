@@ -17,7 +17,12 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
+    USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
+
+    # Google Cloud Storage
+    GCS_BUCKET_NAME: str = "" # Set in .env
+    GOOGLE_APPLICATION_CREDENTIALS: str = "" # Auto-detected or set via env
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

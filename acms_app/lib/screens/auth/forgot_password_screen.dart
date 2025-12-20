@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -13,6 +14,46 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+
+  Future<void> _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (status) {
+          if (status == 'notListening') setState(() => _isListening = false);
+        },
+        onError: (errorNotification) {
+          setState(() => _isListening = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${errorNotification.errorMsg}')),
+            );
+          }
+        },
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _emailController.text = result.recognizedWords;
+              // If final, maybe stop?
+            });
+          },
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Speech recognition not available')),
+          );
+        }
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
 
   Future<void> _handleSendResetLink() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -107,10 +148,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       icon: Icons.mail,
                       isDark: isDark,
                       keyboardType: TextInputType.emailAddress,
-                      suffixIcon: Icons.mic, // Placeholder for Voice Input
-                      onSuffixPressed: () {
-                        // TODO: Implement voice input
-                      },
+                      suffixIcon: _isListening ? Icons.mic_off : Icons.mic,
+                      onSuffixPressed: _listen,
                     ),
 
                     const SizedBox(height: 32),
