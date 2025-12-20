@@ -1,0 +1,53 @@
+"""add user profile fields
+
+Revision ID: 20241220_add_user_fields
+Revises: 
+Create Date: 2024-12-20 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision = '20241220_add_user_fields'
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    # Add new columns to users table
+    # We use nullable=True for all to avoid issues with existing rows
+    op.add_column('users', sa.Column('username', sa.String(), nullable=True))
+    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    
+    op.add_column('users', sa.Column('bio', sa.String(), nullable=True))
+    op.add_column('users', sa.Column('profile_picture', sa.String(), nullable=True))
+    
+    op.add_column('users', sa.Column('instagram', sa.String(), nullable=True))
+    op.add_column('users', sa.Column('linkedin', sa.String(), nullable=True))
+    op.add_column('users', sa.Column('twitter', sa.String(), nullable=True))
+    op.add_column('users', sa.Column('facebook', sa.String(), nullable=True))
+    
+    # integer fields with default 0
+    op.add_column('users', sa.Column('posts_count', sa.Integer(), server_default='0', nullable=True))
+    op.add_column('users', sa.Column('followers_count', sa.Integer(), server_default='0', nullable=True))
+    op.add_column('users', sa.Column('following_count', sa.Integer(), server_default='0', nullable=True))
+
+
+def downgrade() -> None:
+    op.drop_column('users', 'following_count')
+    op.drop_column('users', 'followers_count')
+    op.drop_column('users', 'posts_count')
+    
+    op.drop_column('users', 'facebook')
+    op.drop_column('users', 'twitter')
+    op.drop_column('users', 'linkedin')
+    op.drop_column('users', 'instagram')
+    
+    op.drop_column('users', 'profile_picture')
+    op.drop_column('users', 'bio')
+    
+    op.drop_index(op.f('ix_users_username'), table_name='users')
+    op.drop_column('users', 'username')

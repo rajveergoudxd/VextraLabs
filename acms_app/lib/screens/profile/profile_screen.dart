@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (user?.bio != null && user!.bio!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    user!.bio!,
+                    user.bio ?? '',
                     style: subHeadingStyle.copyWith(fontSize: 14),
                   ),
                 ],
