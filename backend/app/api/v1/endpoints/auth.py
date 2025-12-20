@@ -38,49 +38,7 @@ def login_access_token(
         "token_type": "bearer",
     }
 
-@router.post("/signup", response_model=User)
-async def create_user_signup(
-    *,
-    db: Session = Depends(deps.get_db),
-    user_in: UserCreate,
-) -> Any:
-    """
-    Create new user without the need to be logged in
-    """
-    user = db.query(UserModel).filter(UserModel.email == user_in.email).first()
-    if user:
-        raise HTTPException(
-            status_code=400,
-            detail="The user with this email already exists in the system",
-        )
-    user = UserModel(
-        email=user_in.email,
-        hashed_password=security.get_password_hash(user_in.password),
-        full_name=user_in.full_name,
-        is_active=False, # User must verify OTP to activate
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
 
-    # Generate and Send OTP
-    otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
-    otp_entry = OTPModel(
-        email=user_in.email,
-        code=otp_code,
-        purpose="signup",
-        expires_at=expires_at,
-    )
-    db.add(otp_entry)
-    db.commit()
-
-    # Send OTP via Email
-    # We use create_task or background tasks in prod, but await is fine for now
-    # Since this is async/sync mixed, we need to handle async call properly or make endpoint async
-    # Changing endpoint to async for await support
-    return user
 
 @router.post("/signup", response_model=User)
 async def create_user_signup(
