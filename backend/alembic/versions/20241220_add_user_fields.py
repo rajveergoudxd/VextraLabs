@@ -19,21 +19,37 @@ depends_on = None
 def upgrade() -> None:
     # Add new columns to users table
     # We use nullable=True for all to avoid issues with existing rows
-    op.add_column('users', sa.Column('username', sa.String(), nullable=True))
-    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    conn = op.get_bind()
+    from sqlalchemy import inspect
+    inspector = inspect(conn)
+    columns = [c['name'] for c in inspector.get_columns('users')]
     
-    op.add_column('users', sa.Column('bio', sa.String(), nullable=True))
-    op.add_column('users', sa.Column('profile_picture', sa.String(), nullable=True))
+    if 'username' not in columns:
+        op.add_column('users', sa.Column('username', sa.String(), nullable=True))
+        op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
     
-    op.add_column('users', sa.Column('instagram', sa.String(), nullable=True))
-    op.add_column('users', sa.Column('linkedin', sa.String(), nullable=True))
-    op.add_column('users', sa.Column('twitter', sa.String(), nullable=True))
-    op.add_column('users', sa.Column('facebook', sa.String(), nullable=True))
+    if 'bio' not in columns:
+        op.add_column('users', sa.Column('bio', sa.String(), nullable=True))
+    
+    if 'profile_picture' not in columns:
+        op.add_column('users', sa.Column('profile_picture', sa.String(), nullable=True))
+    
+    if 'instagram' not in columns:
+        op.add_column('users', sa.Column('instagram', sa.String(), nullable=True))
+    if 'linkedin' not in columns:
+        op.add_column('users', sa.Column('linkedin', sa.String(), nullable=True))
+    if 'twitter' not in columns:
+        op.add_column('users', sa.Column('twitter', sa.String(), nullable=True))
+    if 'facebook' not in columns:
+        op.add_column('users', sa.Column('facebook', sa.String(), nullable=True))
     
     # integer fields with default 0
-    op.add_column('users', sa.Column('posts_count', sa.Integer(), server_default='0', nullable=True))
-    op.add_column('users', sa.Column('followers_count', sa.Integer(), server_default='0', nullable=True))
-    op.add_column('users', sa.Column('following_count', sa.Integer(), server_default='0', nullable=True))
+    if 'posts_count' not in columns:
+        op.add_column('users', sa.Column('posts_count', sa.Integer(), server_default='0', nullable=True))
+    if 'followers_count' not in columns:
+        op.add_column('users', sa.Column('followers_count', sa.Integer(), server_default='0', nullable=True))
+    if 'following_count' not in columns:
+        op.add_column('users', sa.Column('following_count', sa.Integer(), server_default='0', nullable=True))
 
 
 def downgrade() -> None:
