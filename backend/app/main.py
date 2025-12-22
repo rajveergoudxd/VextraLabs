@@ -5,21 +5,6 @@ from app.api.v1.api import api_router
 from app.db.base import Base
 from app.db.session import engine
 
-from alembic.config import Config
-from alembic import command
-import logging
-
-# Run Migrations
-try:
-    logging.info("Running database migrations...")
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
-    logging.info("Database migrations completed successfully.")
-except Exception as e:
-    logging.error(f"Error running database migrations: {e}")
-    # We don't raise here to allow the app to start and show logs, 
-    # though it might fail later. Ideally, we should fix the DB.
-    pass
 
 # Create Tables (for anything not covered by migrations, though migrations should cover all)
 Base.metadata.create_all(bind=engine)
