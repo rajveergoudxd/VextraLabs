@@ -1,6 +1,7 @@
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app import crud
 from app.api import deps
 from app.models.user import User as UserModel
 from app.schemas.user import User, UserUpdate
@@ -17,14 +18,8 @@ def update_user_me(
     """
     Update own user.
     """
-    user_data = user_in.model_dump(exclude_unset=True)
-    for field, value in user_data.items():
-        setattr(current_user, field, value)
-        
-    db.add(current_user)
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    user = crud.user.update(db, db_obj=current_user, obj_in=user_in)
+    return user
 @router.put("/fcm-token", response_model=Any)
 def update_fcm_token(
     token: str,
