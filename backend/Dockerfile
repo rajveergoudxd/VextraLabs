@@ -10,8 +10,13 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./app /code/app
 COPY ./alembic /code/alembic
 COPY ./alembic.ini /code/alembic.ini
+COPY ./entrypoint.sh /code/entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x /code/entrypoint.sh
 
 # Cloud Run expects port 8080
 EXPOSE 8080
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Run migrations and start server
+ENTRYPOINT ["/code/entrypoint.sh"]

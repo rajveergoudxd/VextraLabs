@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
 class ThemeManager extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.system;
+  // Default to dark theme
+  ThemeMode _themeMode = ThemeMode.dark;
 
   ThemeMode get themeMode => _themeMode;
 
   bool get isDarkMode {
     if (_themeMode == ThemeMode.system) {
-      // This is a bit tricky without context, simplified for now
-      // The actual check happens in the UI tree usually
       return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
           Brightness.dark;
     }
@@ -21,8 +20,10 @@ class ThemeManager extends ChangeNotifier {
   }
 
   void setThemeMode(ThemeMode mode) {
-    _themeMode = mode;
-    notifyListeners();
+    if (_themeMode != mode) {
+      _themeMode = mode;
+      notifyListeners();
+    }
   }
 }
 

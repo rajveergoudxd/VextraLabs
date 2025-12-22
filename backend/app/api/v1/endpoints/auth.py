@@ -198,3 +198,24 @@ def reset_password(
     
     return {"message": "Password reset successfully"}
 
+
+@router.put("/change-password")
+def change_password(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+    password_data: "ChangePassword",
+) -> Any:
+    """
+    Change password for currently logged-in user.
+    """
+    from app.schemas.settings import ChangePassword
+    
+    if not security.verify_password(password_data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    
+    current_user.hashed_password = security.get_password_hash(password_data.new_password)
+    db.commit()
+    
+    return {"message": "Password changed successfully"}
+

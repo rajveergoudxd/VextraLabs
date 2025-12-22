@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 
@@ -56,10 +57,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
           automaticallyImplyLeading: !widget.isEmbedded,
           title: Text(
-            user?.username ?? user?.fullName ?? 'Profile',
+            user?.username?.isNotEmpty == true
+                ? user!.username!
+                : (user?.fullName.isNotEmpty == true
+                      ? user!.fullName
+                      : 'Profile'),
             style: TextStyle(
-              color: isDark ? Colors.white : AppColors.textMain,
+              color: isDark ? Colors.white : Colors.black,
               fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
           centerTitle: true,
@@ -233,28 +239,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildPlatformChip(
                     'Instagram',
-                    Icons.camera_alt,
+                    FontAwesomeIcons.instagram,
                     _selectedPlatform == 'Instagram',
                     isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildPlatformChip(
                     'LinkedIn',
-                    Icons.work,
+                    FontAwesomeIcons.linkedin,
                     _selectedPlatform == 'LinkedIn',
                     isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildPlatformChip(
                     'Twitter',
-                    Icons.chat_bubble,
+                    FontAwesomeIcons.xTwitter,
                     _selectedPlatform == 'Twitter',
                     isDark,
                   ),
                   const SizedBox(width: 8),
                   _buildPlatformChip(
                     'Facebook',
-                    Icons.public,
+                    FontAwesomeIcons.facebook,
                     _selectedPlatform == 'Facebook',
                     isDark,
                   ),
@@ -443,9 +449,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: Row(
           children: [
-            Icon(
+            FaIcon(
               icon,
-              size: 18,
+              size: 16,
               color: isActive
                   ? Colors.white
                   : (isDark ? Colors.white : AppColors.textMain),

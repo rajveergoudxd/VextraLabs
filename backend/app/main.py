@@ -41,6 +41,10 @@ if settings.BACKEND_CORS_ORIGINS:
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+# WebSocket routes for real-time features
+from app.api.v1.endpoints import websocket as ws_router
+app.include_router(ws_router.router, prefix=f"{settings.API_V1_STR}/ws", tags=["websocket"])
+
 @app.get("/")
 def root():
     return {"message": "Welcome to Vextra API", "status": "active"}

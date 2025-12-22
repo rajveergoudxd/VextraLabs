@@ -24,6 +24,21 @@ class Settings(BaseSettings):
     GCS_BUCKET_NAME: str = "" # Set in .env
     GOOGLE_APPLICATION_CREDENTIALS: str = "" # Auto-detected or set via env
 
+    # OAuth - Meta (Instagram + Facebook)
+    META_APP_ID: str = ""
+    META_APP_SECRET: str = ""
+    META_REDIRECT_URI: str = ""
+
+    # OAuth - Twitter/X
+    TWITTER_CLIENT_ID: str = ""
+    TWITTER_CLIENT_SECRET: str = ""
+    TWITTER_REDIRECT_URI: str = ""
+
+    # OAuth - LinkedIn
+    LINKEDIN_CLIENT_ID: str = ""
+    LINKEDIN_CLIENT_SECRET: str = ""
+    LINKEDIN_REDIRECT_URI: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()

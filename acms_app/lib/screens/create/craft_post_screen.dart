@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
@@ -321,10 +321,7 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
                               margin: const EdgeInsets.only(right: 8),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: CachedNetworkImage(
-                                  imageUrl: selectedMedia[index],
-                                  fit: BoxFit.cover,
-                                ),
+                                child: _buildMediaImage(selectedMedia[index]),
                               ),
                             );
                           },
@@ -533,5 +530,34 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
         size: 20,
       ),
     );
+  }
+
+  /// Helper to display media from either local file path or network URL
+  Widget _buildMediaImage(String path) {
+    // Check if it's a local file path
+    if (path.startsWith('/') || path.startsWith('file://')) {
+      return Image.file(
+        File(path.replaceFirst('file://', '')),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: const Icon(Icons.broken_image, color: Colors.grey),
+          );
+        },
+      );
+    } else {
+      // Network URL
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: const Icon(Icons.broken_image, color: Colors.grey),
+          );
+        },
+      );
+    }
   }
 }

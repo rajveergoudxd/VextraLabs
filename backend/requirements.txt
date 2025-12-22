@@ -13,3 +13,6 @@ psycopg2-binary
 google-cloud-storage
 fastapi-mail
 alembic
+httpx
+cryptography
+websockets

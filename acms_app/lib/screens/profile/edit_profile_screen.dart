@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
+import 'package:acms_app/providers/social_connections_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 class EditProfileScreen extends StatefulWidget {
@@ -213,21 +216,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 24),
 
-            _buildSectionHeader('Social Links', isDark),
-            _buildTextField(
+            _buildSectionHeader('Connected Platforms', isDark),
+            _buildPlatformCard(
               'Instagram',
-              _instagramController,
+              FontAwesomeIcons.instagram,
+              const Color(0xFFE1306C),
+              user?.instagram,
               isDark,
-              prefixText: '@',
+              onConnect: () => _showConnectDialog('Instagram'),
+              onDisconnect: () => _disconnectPlatform('instagram'),
             ),
-            _buildTextField('LinkedIn', _linkedinController, isDark),
-            _buildTextField(
-              'Twitter',
-              _twitterController,
+            _buildPlatformCard(
+              'LinkedIn',
+              FontAwesomeIcons.linkedin,
+              const Color(0xFF0077B5),
+              user?.linkedin,
               isDark,
-              prefixText: '@',
+              onConnect: () => _showConnectDialog('LinkedIn'),
+              onDisconnect: () => _disconnectPlatform('linkedin'),
             ),
-            _buildTextField('Facebook', _facebookController, isDark),
+            _buildPlatformCard(
+              'Twitter / X',
+              FontAwesomeIcons.xTwitter,
+              isDark ? Colors.white : Colors.black,
+              user?.twitter,
+              isDark,
+              onConnect: () => _showConnectDialog('Twitter'),
+              onDisconnect: () => _disconnectPlatform('twitter'),
+            ),
+            _buildPlatformCard(
+              'Facebook',
+              FontAwesomeIcons.facebook,
+              const Color(0xFF1877F2),
+              user?.facebook,
+              isDark,
+              onConnect: () => _showConnectDialog('Facebook'),
+              onDisconnect: () => _disconnectPlatform('facebook'),
+            ),
           ],
         ),
       ),
@@ -296,5 +321,260 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildPlatformCard(
+    String platformName,
+    IconData icon,
+    Color iconColor,
+    String? connectedAccount,
+    bool isDark, {
+    required VoidCallback onConnect,
+    required VoidCallback onDisconnect,
+  }) {
+    final isConnected = connectedAccount != null && connectedAccount.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isConnected
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : (isDark ? Colors.grey[800]! : Colors.grey[200]!),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Platform Logo
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: FaIcon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(width: 16),
+
+          // Platform Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  platformName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppColors.textMain,
+                  ),
+                ),
+                if (isConnected)
+                  Text(
+                    '@$connectedAccount',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Connect/Disconnect Button
+          isConnected
+              ? OutlinedButton(
+                  onPressed: onDisconnect,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Connected',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                )
+              : ElevatedButton(
+                  onPressed: onConnect,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Connect',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  void _showConnectDialog(String platform) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Connect $platform',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.textMain,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You\'ll be redirected to $platform to authorize Vextra to post on your behalf.',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _launchOAuth(platform.toLowerCase());
+                },
+                icon: const Icon(Icons.open_in_browser),
+                label: Text('Connect with $platform'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Note: OAuth setup requires backend configuration.',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey[500] : Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchOAuth(String platform) async {
+    try {
+      final provider = Provider.of<SocialConnectionsProvider>(
+        context,
+        listen: false,
+      );
+      final authResponse = await provider.getAuthorizationUrl(platform);
+
+      if (authResponse != null) {
+        final uri = Uri.parse(authResponse.authorizationUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not launch authorization URL'),
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to get authorization URL: ${provider.error}',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _disconnectPlatform(String platform) async {
+    final provider = Provider.of<SocialConnectionsProvider>(
+      context,
+      listen: false,
+    );
+
+    final success = await provider.disconnect(platform);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Platform disconnected'
+                : 'Failed to disconnect: ${provider.error}',
+          ),
+        ),
+      );
+    }
   }
 }

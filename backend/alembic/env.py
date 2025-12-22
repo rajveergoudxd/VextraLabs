@@ -24,6 +24,11 @@ from app.db.base import Base
 # Import all models so Base has them registered
 from app.models.user import User
 from app.models.otp import OTP
+from app.models.settings import UserSettings
+from app.models.social_connection import SocialConnection
+from app.models.follow import Follow
+from app.models.conversation import Conversation, ConversationParticipant
+from app.models.message import Message
 
 target_metadata = Base.metadata
 

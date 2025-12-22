@@ -5,13 +5,43 @@ import 'package:acms_app/theme/theme_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
+import 'package:acms_app/providers/settings_provider.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Listen to theme changes to rebuild UI
+    themeManager.addListener(_onThemeChanged);
+    // Load settings when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<SettingsProvider>(context, listen: false).loadSettings();
+    });
+  }
+
+  @override
+  void dispose() {
+    themeManager.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final user = authProvider.user;
 
     return Scaffold(
       backgroundColor: isDark
@@ -34,7 +64,7 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Profile Section
+            // Profile Section - Real user data
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -59,34 +89,23 @@ class SettingsScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.primary, width: 2),
-                      image: const DecorationImage(
-                        image: CachedNetworkImageProvider(
-                          "https://lh3.googleusercontent.com/aida-public/AB6AXuBE8gEfC22IC2P_14syVYuERNKwUwvSAIyPiBvg0_Oa-eigjB1ZzpNjS1-S20iTfb7ZsB32GEO_Nn2JZ9cDhU1cRjmP43vwNw_9O5o1aG_5eEb-JRZ4Eo5MnghLPMfUKKdprq8JzSl8in70xPT6soLcuTMrJpAQFkHDjvS8afakvrhqliyMFpEQJbID7HiVEM0FoAKO6ia5WhFkkQX0ADGnOv53KsGwkskB8SiCwI8fHtQjcseuY4OAkcNSeZgmtNv6DwdlGdVgqqs",
-                        ),
-                        fit: BoxFit.cover,
-                      ),
+                      color: isDark ? Colors.grey[800] : Colors.grey[200],
+                      image: user?.profilePicture != null
+                          ? DecorationImage(
+                              image: CachedNetworkImageProvider(
+                                user!.profilePicture!,
+                              ),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    child: Align(
-                      alignment: Alignment.bottomRight,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.surfaceDark
-                                : Colors.white,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.star,
-                          color: Colors.white,
-                          size: 10,
-                        ),
-                      ),
-                    ),
+                    child: user?.profilePicture == null
+                        ? Icon(
+                            Icons.person,
+                            size: 30,
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -94,21 +113,23 @@ class SettingsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Sarah Jenkins',
+                          user?.fullName ?? 'User',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : AppColors.textMain,
                           ),
                         ),
-                        const Text(
-                          'Pro Plan Member',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w500,
+                        if (user?.email != null)
+                          Text(
+                            user!.email,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -117,42 +138,11 @@ class SettingsScreen extends StatelessWidget {
                       Icons.edit_square,
                       color: isDark ? Colors.grey[500] : Colors.grey[400],
                     ),
-                    onPressed: () {},
+                    onPressed: () => context.push('/edit-profile'),
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // AI Workflows
-            _buildSectionHeader('AI WORKFLOWS'),
-            _buildSettingsContainer(isDark, [
-              _buildSettingsItem(
-                context,
-                icon: Icons.mic,
-                iconColor: AppColors.primary,
-                iconBgColor: AppColors.primary.withValues(alpha: 0.1),
-                title: 'Voice Command',
-                subtitle: '"Hey AI, post to Twitter"',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (v) {},
-                  activeTrackColor: AppColors.primary,
-                ),
-                isDark: isDark,
-              ),
-              _buildDivider(isDark),
-              _buildSettingsItem(
-                context,
-                icon: Icons.psychology,
-                iconColor: AppColors.primary,
-                iconBgColor: AppColors.primary.withValues(alpha: 0.1),
-                title: 'Content Tone Defaults',
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                isDark: isDark,
-              ),
-            ]),
 
             const SizedBox(height: 16),
 
@@ -165,39 +155,16 @@ class SettingsScreen extends StatelessWidget {
                 title: 'Personal Info',
                 trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                 isDark: isDark,
+                onTap: () => context.push('/edit-profile'),
               ),
               _buildDivider(isDark),
               _buildSettingsItem(
                 context,
                 icon: Icons.lock,
-                title: 'Security',
+                title: 'Change Password',
                 trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                 isDark: isDark,
-              ),
-              _buildDivider(isDark),
-              _buildSettingsItem(
-                context,
-                icon: Icons.credit_card,
-                title: 'Subscription',
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'PRO',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                isDark: isDark,
+                onTap: () => context.push('/settings/change-password'),
               ),
             ]),
 
@@ -209,8 +176,16 @@ class SettingsScreen extends StatelessWidget {
               _buildSettingsItem(
                 context,
                 icon: Icons.notifications,
-                title: 'Notifications',
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                title: 'Push Notifications',
+                trailing: Switch(
+                  value: settingsProvider.pushNotificationsEnabled,
+                  onChanged: settingsProvider.isLoading
+                      ? null
+                      : (value) async {
+                          await settingsProvider.updatePushNotifications(value);
+                        },
+                  activeTrackColor: AppColors.primary,
+                ),
                 isDark: isDark,
               ),
               _buildDivider(isDark),
@@ -234,7 +209,7 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
                 isDark: isDark,
-                onTap: () => _showThemePicker(context),
+                onTap: () => _showThemePicker(context, settingsProvider),
               ),
               _buildDivider(isDark),
               _buildSettingsItem(
@@ -243,6 +218,7 @@ class SettingsScreen extends StatelessWidget {
                 title: 'Privacy & Data',
                 trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                 isDark: isDark,
+                onTap: () => context.push('/settings/privacy'),
               ),
             ]),
 
@@ -250,15 +226,20 @@ class SettingsScreen extends StatelessWidget {
 
             // Logout
             OutlinedButton.icon(
-              onPressed: () {
-                context.read<AuthProvider>().logout();
-                context.go('/');
+              onPressed: () async {
+                // Reset settings
+                settingsProvider.reset();
+                // Logout user
+                await authProvider.logout();
+                if (context.mounted) {
+                  context.go('/');
+                }
               },
               icon: const Icon(Icons.logout),
               label: const Text('Log Out'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(color: Colors.red.withValues(alpha: 0.2)),
+                foregroundColor: Colors.red,
+                side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
                 backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -270,7 +251,7 @@ class SettingsScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
             Text(
-              'Version 2.4.0 (Build 302)',
+              'Version 1.0.0',
               style: TextStyle(color: Colors.grey[400], fontSize: 12),
             ),
             const SizedBox(height: 32),
@@ -392,7 +373,10 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showThemePicker(BuildContext context) {
+  void _showThemePicker(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -409,9 +393,27 @@ class SettingsScreen extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const SizedBox(height: 16),
-              _buildThemeOption(context, 'System Default', ThemeMode.system),
-              _buildThemeOption(context, 'Light Mode', ThemeMode.light),
-              _buildThemeOption(context, 'Dark Mode', ThemeMode.dark),
+              _buildThemeOption(
+                context,
+                settingsProvider,
+                'System Default',
+                ThemeMode.system,
+                'system',
+              ),
+              _buildThemeOption(
+                context,
+                settingsProvider,
+                'Light Mode',
+                ThemeMode.light,
+                'light',
+              ),
+              _buildThemeOption(
+                context,
+                settingsProvider,
+                'Dark Mode',
+                ThemeMode.dark,
+                'dark',
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -420,7 +422,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildThemeOption(BuildContext context, String title, ThemeMode mode) {
+  Widget _buildThemeOption(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+    String title,
+    ThemeMode mode,
+    String preference,
+  ) {
     final isSelected = themeManager.themeMode == mode;
     return ListTile(
       title: Text(title),
@@ -428,8 +436,11 @@ class SettingsScreen extends StatelessWidget {
           ? const Icon(Icons.check, color: AppColors.primary)
           : null,
       onTap: () {
+        // Update locally immediately
         themeManager.setThemeMode(mode);
         Navigator.pop(context);
+        // Sync to backend
+        settingsProvider.updateThemePreference(preference);
       },
     );
   }

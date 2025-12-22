@@ -22,3 +22,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+def decode_access_token(token: str) -> dict | None:
+    """Decode and validate a JWT access token."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.JWTError:
+        return None
