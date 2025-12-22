@@ -16,3 +16,4 @@ alembic
 httpx
 cryptography
 websockets
+tenacity
