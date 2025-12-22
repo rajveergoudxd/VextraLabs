@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:acms_app/services/settings_service.dart';
 import 'package:acms_app/theme/theme_manager.dart';
+import 'package:acms_app/services/push_notification_service.dart';
 
 class UserSettings {
   final int id;
@@ -27,7 +28,6 @@ class UserSettings {
     );
   }
 
-  // Default settings for when not logged in or API fails
   factory UserSettings.defaults() {
     return UserSettings(
       id: 0,
@@ -41,6 +41,7 @@ class UserSettings {
 
 class SettingsProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
+  final PushNotificationService _pushService = PushNotificationService();
 
   UserSettings _settings = UserSettings.defaults();
   bool _isLoading = false;
@@ -62,12 +63,9 @@ class SettingsProvider extends ChangeNotifier {
     try {
       final data = await _settingsService.getSettings();
       _settings = UserSettings.fromJson(data);
-
-      // Sync theme with ThemeManager
       _syncThemeMode(_settings.themePreference);
     } catch (e) {
       _error = e.toString();
-      // Use defaults on error
       _settings = UserSettings.defaults();
     } finally {
       _isLoading = false;
@@ -84,6 +82,12 @@ class SettingsProvider extends ChangeNotifier {
         pushNotificationsEnabled: enabled,
       );
       _settings = UserSettings.fromJson(data);
+
+      // Sync token state
+      if (enabled) {
+        await _pushService.initialize();
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -116,7 +120,6 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<bool> updateThemePreference(String theme) async {
-    // Update locally first for immediate feedback
     themeManager.setThemeMode(_getThemeMode(theme));
 
     try {
@@ -133,16 +136,12 @@ class SettingsProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> changePassword(
-    String currentPassword,
-    String newPassword,
-  ) async {
+  Future<bool> changePassword(String current, String newPass) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-
     try {
-      await _settingsService.changePassword(currentPassword, newPassword);
+      await _settingsService.changePassword(current, newPass);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -158,7 +157,6 @@ class SettingsProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
-
     try {
       await _settingsService.deleteAccount();
       _isLoading = false;

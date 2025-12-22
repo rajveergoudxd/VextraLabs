@@ -25,3 +25,16 @@ def update_user_me(
     db.commit()
     db.refresh(current_user)
     return current_user
+@router.put("/fcm-token", response_model=Any)
+def update_fcm_token(
+    token: str,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update FCM token for the current user.
+    """
+    current_user.fcm_token = token
+    db.add(current_user)
+    db.commit()
+    return {"message": "FCM token updated"}

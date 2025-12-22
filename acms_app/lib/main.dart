@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/theme_manager.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:acms_app/services/push_notification_service.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/settings_provider.dart';
 import 'package:acms_app/providers/social_connections_provider.dart';
 import 'package:acms_app/providers/social_provider.dart';
 import 'package:acms_app/providers/chat_provider.dart';
+import 'package:acms_app/providers/notification_provider.dart';
+import 'package:acms_app/providers/presence_provider.dart';
+import 'package:acms_app/providers/inspire_provider.dart';
 
 // Screens
 import 'package:acms_app/screens/welcome_screen.dart';
@@ -58,7 +63,23 @@ class PlaceholderScreen extends StatelessWidget {
   );
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  // Note: Default FirebaseOptions are not provided here automatically.
+  // In a real app, you'd use FlutterFire CLI to generate firebase_options.dart
+  // For now, we wrap in try-catch to prevent crash if config is missing
+  try {
+    await Firebase.initializeApp();
+
+    // Initialize Push Notifications
+    final pushService = PushNotificationService();
+    await pushService.initialize();
+  } catch (e) {
+    debugPrint("Firebase initialization failed: $e");
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -70,7 +91,11 @@ void main() {
         ChangeNotifierProvider(create: (_) => SocialConnectionsProvider()),
         ChangeNotifierProvider(create: (_) => SocialProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => PresenceProvider()),
+        ChangeNotifierProvider(create: (_) => InspireProvider()),
       ],
+
       child: const AcmsApp(),
     ),
   );
@@ -288,6 +313,12 @@ class AcmsApp extends StatelessWidget {
       ),
 
       // ---- Chat Routes (Full Screen) ----
+      // IMPORTANT: Literal routes must come before parameterized routes
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/chats/new',
+        builder: (context, state) => const UserSearchScreen(),
+      ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/chats/:id',
@@ -295,11 +326,6 @@ class AcmsApp extends StatelessWidget {
           final id = int.parse(state.pathParameters['id']!);
           return ChatDetailScreen(conversationId: id);
         },
-      ),
-      GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
-        path: '/chats/new',
-        builder: (context, state) => const UserSearchScreen(),
       ),
 
       // ---- Social Routes (Full Screen) ----

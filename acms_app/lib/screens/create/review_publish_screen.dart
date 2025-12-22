@@ -22,7 +22,14 @@ class ReviewPublishScreen extends StatelessWidget {
         : "https://lh3.googleusercontent.com/aida-public/AB6AXuCNMaqYoRJ9KyycTlyzur1QQZ5ZbkhWh4vbPkS3hpwf3Fi8p0dwT5HL6g_ruqCTYO7jiVcHBx2BdlaJ7pVS0YDPDfcRS6tD_L65i1DQoAv98D9iqwAnROFN4qU4lp5HpsPdI_RVIqjCS-ZxGPjYpk77cB0ovfyvEWwRpznWeZe1i2_7wYs2tGBt7DUJTfVvgGCyCk-IVz1rrxbGEHmL8bubYWdDgRacEFHWoUths9575rnYpofgGBhJRA8sEA4InJxUe8OVoJCTfcc";
 
     // Platforms to show
-    final platforms = [
+    // Platforms to show
+    final allPlatforms = [
+      {
+        'name': 'Inspire',
+        'icon': Icons.auto_awesome,
+        'color': AppColors.primary,
+        'mandatory': true,
+      },
       {
         'name': 'Instagram',
         'icon': Icons.camera_alt,
@@ -52,126 +59,137 @@ class ReviewPublishScreen extends StatelessWidget {
           : AppColors.backgroundLight,
       body: Stack(
         children: [
-          SafeArea(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(Icons.arrow_back),
-                        style: IconButton.styleFrom(
-                          backgroundColor: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.black.withValues(alpha: 0.05),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          'Review & Publish',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.grey[900],
+          IgnorePointer(
+            ignoring: creationProvider.isPublishing,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back),
+                          style: IconButton.styleFrom(
+                            backgroundColor: isDark
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : Colors.black.withValues(alpha: 0.05),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 40),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isManual ? Icons.edit : Icons.auto_awesome,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
+                        Expanded(
+                          child: Text(
+                            'Review & Publish',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.grey[900],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isManual
-                                        ? 'Your Manual Drafts'
-                                        : 'AI Generated 3 Drafts',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                  Text(
-                                    isManual
-                                        ? 'Review your final crafted posts.'
-                                        : 'Based on your selected media.',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? Colors.grey[400]
-                                          : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 24),
-
-                        ...platforms.map((platform) {
-                          final name = platform['name'] as String;
-                          // Simplify platform key matching for captions (e.g. "X (Twitter)" -> "Twitter")
-                          String key = name;
-                          if (name.contains('Twitter')) key = 'Twitter';
-
-                          final content = captions[key] ?? '';
-                          // Only show if there is content or media (for manual mode, usually we show all or selected)
-                          // For now layout all, but maybe empty state if no text?
-                          // Let's show all for preview consistency.
-
-                          return _buildPostCard(
-                            context,
-                            platform: name,
-                            icon: platform['icon'] as IconData,
-                            color: platform['color'] as Color,
-                            content: content.isEmpty
-                                ? 'No caption drafted.'
-                                : content,
-                            image:
-                                displayImage, // potentially use filter-edited image if I stored it
-                            darkIcon: platform['darkIcon'] == true,
-                            isDark: isDark,
-                            mediaCount: selectedMedia.length,
-                          );
-                        }),
+                        const SizedBox(width: 40),
                       ],
                     ),
                   ),
-                ),
-              ],
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isManual ? Icons.edit : Icons.auto_awesome,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isManual
+                                          ? 'Your Manual Drafts'
+                                          : 'AI Generated 3 Drafts',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                    Text(
+                                      isManual
+                                          ? 'Review your final crafted posts.'
+                                          : 'Based on your selected media.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+
+                          ...allPlatforms.map((platform) {
+                            final name = platform['name'] as String;
+                            final isSelected = creationProvider.platforms
+                                .contains(name);
+                            // Simplify platform key matching for captions (e.g. "X (Twitter)" -> "Twitter")
+                            String key = name;
+                            if (name.contains('Twitter')) key = 'Twitter';
+
+                            final content = captions[key] ?? '';
+                            // Only show if there is content or media (for manual mode, usually we show all or selected)
+                            // For now layout all, but maybe empty state if no text?
+                            // Let's show all for preview consistency.
+
+                            return _buildPostCard(
+                              context,
+                              platform: name,
+                              icon: platform['icon'] as IconData,
+                              color: platform['color'] as Color,
+                              content: content.isEmpty
+                                  ? 'No caption drafted.'
+                                  : content,
+                              image:
+                                  displayImage, // potentially use filter-edited image if I stored it
+                              darkIcon: platform['darkIcon'] == true,
+                              isDark: isDark,
+                              mediaCount: selectedMedia.length,
+                              isSelected: isSelected,
+                              isMandatory: platform['mandatory'] == true,
+                              onToggle: () =>
+                                  creationProvider.togglePlatform(name),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -224,7 +242,25 @@ class ReviewPublishScreen extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () => context.push('/create/success'),
+                      onPressed: creationProvider.isPublishing
+                          ? null
+                          : () async {
+                              await creationProvider.publishPost();
+                              if (context.mounted &&
+                                  creationProvider.publishSuccess) {
+                                context.pushReplacement('/create/success');
+                              } else if (context.mounted &&
+                                  creationProvider.publishError != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      creationProvider.publishError!,
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -234,20 +270,29 @@ class ReviewPublishScreen extends StatelessWidget {
                         ),
                         elevation: 4,
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Publish All',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      child: creationProvider.isPublishing
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Publish',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(Icons.rocket_launch, size: 18),
+                              ],
                             ),
-                          ),
-                          SizedBox(width: 8),
-                          Icon(Icons.rocket_launch, size: 18),
-                        ],
-                      ),
                     ),
                   ),
                 ],
@@ -269,6 +314,9 @@ class ReviewPublishScreen extends StatelessWidget {
     bool darkIcon = false,
     required bool isDark,
     int mediaCount = 1,
+    required bool isSelected,
+    required bool isMandatory,
+    required VoidCallback onToggle,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),

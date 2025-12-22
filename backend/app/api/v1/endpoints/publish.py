@@ -10,6 +10,7 @@ from datetime import datetime
 from app.api import deps
 from app.models.user import User
 from app.models.social_connection import SocialConnection
+from app.models.post import Post  # Added import
 from app.schemas.social_connection import PublishRequest, PublishResponse
 from app.core.encryption import decrypt_token
 from app.core.encryption import decrypt_token
@@ -56,6 +57,19 @@ async def publish_content(
     ).all()
     
     connections_by_platform = {c.platform: c for c in connections}
+    
+    # Create internal post record
+    internal_post = Post(
+        user_id=current_user.id,
+        content=request.content,
+        media_urls=request.media_urls,
+        platforms=request.platforms,
+        published_at=datetime.utcnow()
+    )
+    db.add(internal_post)
+    current_user.posts_count += 1
+    db.commit()
+    db.refresh(internal_post)
     
     results: Dict[str, Any] = {}
     success_count = 0

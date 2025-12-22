@@ -17,6 +17,8 @@ from app.schemas.social import (
     PublicProfile,
 )
 
+from app.models.notification import Notification, NotificationType
+
 router = APIRouter()
 
 
@@ -59,6 +61,18 @@ def follow_user(
     # Create follow relationship
     follow = Follow(follower_id=current_user.id, following_id=user_id)
     db.add(follow)
+    
+    # Create notification
+    notification = Notification(
+        user_id=user_id,
+        actor_id=current_user.id,
+        type=NotificationType.FOLLOW,
+        title="New Follower",
+        message=f"{current_user.username} started following you",
+        related_id=current_user.id,
+        related_type="user"
+    )
+    db.add(notification)
     
     # Update counts
     current_user.following_count = (current_user.following_count or 0) + 1

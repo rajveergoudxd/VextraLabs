@@ -261,17 +261,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildSectionHeader(String title, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.grey[300] : Colors.grey[700],
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 20,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.primary, Color(0xFFEC4899)],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.textMain,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -282,45 +297,94 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bool isDark, {
     int maxLines = 1,
     String? prefixText,
+    IconData? icon,
+    String? hint,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    // Assign default icons based on label
+    IconData fieldIcon = icon ?? _getIconForLabel(label);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        style: TextStyle(color: isDark ? Colors.white : AppColors.textMain),
+        style: TextStyle(
+          color: isDark ? Colors.white : AppColors.textMain,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
+            color: isDark ? Colors.grey[400] : Colors.grey[500],
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
+            fontSize: 14,
+          ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 12),
+            child: Icon(
+              fieldIcon,
+              size: 20,
+              color: isDark ? Colors.grey[400] : Colors.grey[500],
+            ),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 48),
           prefixText: prefixText,
           prefixStyle: TextStyle(
             color: isDark ? Colors.grey[400] : Colors.grey[600],
+            fontWeight: FontWeight.w500,
           ),
           filled: true,
-          fillColor: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.white,
+          fillColor: Colors.transparent,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: maxLines > 1 ? 16 : 18,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: isDark ? Colors.white10 : Colors.grey[200]!,
-            ),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: isDark ? Colors.white10 : Colors.grey[200]!,
-            ),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
         ),
       ),
     );
+  }
+
+  IconData _getIconForLabel(String label) {
+    switch (label.toLowerCase()) {
+      case 'full name':
+        return Icons.person_outline_rounded;
+      case 'username':
+        return Icons.alternate_email_rounded;
+      case 'bio':
+        return Icons.edit_note_rounded;
+      default:
+        return Icons.text_fields_rounded;
+    }
   }
 
   Widget _buildPlatformCard(

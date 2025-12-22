@@ -1,33 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
-
-enum NotificationType { like, comment, follow, mention, system, ai }
-
-class NotificationItem {
-  final String id;
-  final NotificationType type;
-  final String username;
-  final String avatarUrl;
-  final String message;
-  final String timeAgo;
-  final bool isUnread;
-  final String? contentImageUrl;
-  final bool isFollowing;
-
-  NotificationItem({
-    required this.id,
-    required this.type,
-    required this.username,
-    required this.avatarUrl,
-    required this.message,
-    required this.timeAgo,
-    this.isUnread = false,
-    this.contentImageUrl,
-    this.isFollowing = false,
-  });
-}
+import 'package:acms_app/providers/notification_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -37,95 +13,14 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  int _selectedFilterIndex = 0;
   final List<String> _filters = ["All", "Mentions", "System"];
 
-  // Dummy Data
-  final List<NotificationItem> _allNotifications = [
-    NotificationItem(
-      id: '1',
-      type: NotificationType.ai,
-      username: 'Vextra AI',
-      avatarUrl: '', // System icon used instead
-      message: 'Your "Future of Tech" post generation is ready.',
-      timeAgo: '2m',
-      isUnread: true,
-      contentImageUrl: 'https://picsum.photos/id/48/200/200',
-    ),
-    NotificationItem(
-      id: '2',
-      type: NotificationType.like,
-      username: 'sarah_design',
-      avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026024d',
-      message: 'liked your post.',
-      timeAgo: '2h',
-      isUnread: true,
-      contentImageUrl: 'https://picsum.photos/id/237/200/200',
-    ),
-    NotificationItem(
-      id: '3',
-      type: NotificationType.follow,
-      username: 'tech_daily',
-      avatarUrl: 'https://i.pravatar.cc/150?u=a04258a2462d826712d',
-      message: 'started following you.',
-      timeAgo: '5h',
-      isUnread: true,
-      isFollowing: false,
-    ),
-    NotificationItem(
-      id: '4',
-      type: NotificationType.comment,
-      username: 'alex_marketing',
-      avatarUrl: 'https://i.pravatar.cc/150?u=a048581f4e29026701d',
-      message: 'commented: "Great insights on the new AI trends!"',
-      timeAgo: '1d',
-      contentImageUrl: 'https://picsum.photos/id/10/200/200',
-    ),
-    NotificationItem(
-      id: '5',
-      type: NotificationType.mention,
-      username: 'john_doe',
-      avatarUrl: 'https://i.pravatar.cc/150?u=2042581f4e29026704d',
-      message: 'mentioned you in a story.',
-      timeAgo: '1d',
-      contentImageUrl: 'https://picsum.photos/id/1015/200/200',
-    ),
-    NotificationItem(
-      id: '6',
-      type: NotificationType.system,
-      username: 'System',
-      avatarUrl: '',
-      message: 'Your monthly analytics report is available.',
-      timeAgo: '2d',
-    ),
-    NotificationItem(
-      id: '7',
-      type: NotificationType.follow,
-      username: 'creative_studio',
-      avatarUrl: 'https://i.pravatar.cc/150?u=1042581f4e29026704d',
-      message: 'started following you.',
-      timeAgo: '3d',
-      isFollowing: true,
-    ),
-  ];
-
-  List<NotificationItem> get _filteredNotifications {
-    if (_selectedFilterIndex == 0) return _allNotifications;
-    if (_selectedFilterIndex == 1) {
-      return _allNotifications
-          .where((n) => n.type == NotificationType.mention)
-          .toList();
-    }
-    if (_selectedFilterIndex == 2) {
-      return _allNotifications
-          .where(
-            (n) =>
-                n.type == NotificationType.system ||
-                n.type == NotificationType.ai,
-          )
-          .toList();
-    }
-    return _allNotifications;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().loadNotifications();
+    });
   }
 
   @override
@@ -153,62 +48,156 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             fontSize: 20,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.done_all, color: textColor),
+            tooltip: 'Mark all as read',
+            onPressed: () {
+              context.read<NotificationProvider>().markAllAsRead();
+            },
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Container(
             height: 60,
             alignment: Alignment.centerLeft,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              scrollDirection: Axis.horizontal,
-              itemCount: _filters.length,
-              separatorBuilder: (c, i) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final isSelected = _selectedFilterIndex == index;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedFilterIndex = index),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (isDark ? Colors.white : Colors.black)
-                          : (isDark ? Colors.grey[800] : Colors.grey[200]),
-                      borderRadius: BorderRadius.circular(20),
-                      border: isSelected
-                          ? null
-                          : Border.all(
-                              color: isDark
-                                  ? Colors.grey[700]!
-                                  : Colors.grey[300]!,
-                            ),
-                    ),
-                    child: Text(
-                      _filters[index],
-                      style: TextStyle(
-                        color: isSelected
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? Colors.grey[400] : Colors.grey[800]),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
+            child: Consumer<NotificationProvider>(
+              builder: (context, provider, _) {
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _filters.length,
+                  separatorBuilder: (c, i) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final isSelected = provider.selectedFilterIndex == index;
+                    return GestureDetector(
+                      onTap: () => provider.setFilter(index),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (isDark ? Colors.white : Colors.black)
+                              : (isDark ? Colors.grey[800] : Colors.grey[200]),
+                          borderRadius: BorderRadius.circular(20),
+                          border: isSelected
+                              ? null
+                              : Border.all(
+                                  color: isDark
+                                      ? Colors.grey[700]!
+                                      : Colors.grey[300]!,
+                                ),
+                        ),
+                        child: Text(
+                          _filters[index],
+                          style: TextStyle(
+                            color: isSelected
+                                ? (isDark ? Colors.black : Colors.white)
+                                : (isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[800]),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
           ),
         ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.only(top: 0),
-        itemCount: _filteredNotifications.length,
-        itemBuilder: (context, index) {
-          final notification = _filteredNotifications[index];
-          // Simple date headers logic could be added here
-          return _NotificationTile(notification: notification, isDark: isDark);
+      body: Consumer<NotificationProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading && provider.notifications.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.error != null && provider.notifications.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(provider.error!),
+                  TextButton(
+                    onPressed: () => provider.loadNotifications(refresh: true),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (provider.notifications.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.notifications_none,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => provider.loadNotifications(refresh: true),
+            child: ListView.builder(
+              padding: const EdgeInsets.only(top: 0),
+              itemCount:
+                  provider.notifications.length + (provider.hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == provider.notifications.length) {
+                  provider.loadMore();
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final notification = provider.notifications[index];
+                return _NotificationTile(
+                  notification: notification,
+                  isDark: isDark,
+                  onTap: () {
+                    // Mark as read
+                    if (!notification.isRead) {
+                      provider.markAsRead(notification.id);
+                    }
+
+                    // Handle navigation based on type
+                    if (notification.type == 'follow' &&
+                        notification.actor != null) {
+                      context.push('/user/${notification.actor!.username}');
+                    }
+                    // Handle post/comment navigation etc if implemented
+                  },
+                );
+              },
+            ),
+          );
         },
       ),
     );
@@ -218,85 +207,95 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _NotificationTile extends StatelessWidget {
   final NotificationItem notification;
   final bool isDark;
+  final VoidCallback onTap;
 
-  const _NotificationTile({required this.notification, required this.isDark});
+  const _NotificationTile({
+    required this.notification,
+    required this.isDark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: notification.isUnread
-          ? (isDark
-                ? AppColors.primary.withValues(alpha: 0.1)
-                : AppColors.primary.withValues(alpha: 0.05))
-          : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Avatar
-          _buildAvatar(),
-          const SizedBox(width: 14),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: !notification.isRead
+            ? (isDark
+                  ? AppColors.primary.withValues(alpha: 0.1)
+                  : AppColors.primary.withValues(alpha: 0.05))
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Avatar
+            _buildAvatar(),
+            const SizedBox(width: 14),
 
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white : Colors.black,
-                      height: 1.4,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: notification.username,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white : Colors.black,
+                        height: 1.4,
                       ),
-                      const TextSpan(text: ' '),
-                      TextSpan(text: notification.message),
-                      const TextSpan(text: ' '),
-                      TextSpan(
-                        text: notification.timeAgo,
+                      children: [
+                        if (notification.actor != null) ...[
+                          TextSpan(
+                            text: notification.actor!.username,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const TextSpan(text: ' '),
+                        ],
+                        TextSpan(text: notification.message),
+                        const TextSpan(text: ' '),
+                        TextSpan(
+                          text: notification.timeAgo,
+                          style: TextStyle(
+                            color: isDark ? Colors.grey[500] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (notification.type == 'system' ||
+                      notification.type == 'ai')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        "Tap to view details",
                         style: TextStyle(
-                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                if (notification.type == NotificationType.system ||
-                    notification.type == NotificationType.ai)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      "Tap to view details",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
 
-          // Action (Follow button or Image)
-          if (notification.type == NotificationType.follow)
-            _buildFollowButton(context)
-          else if (notification.contentImageUrl != null)
-            _buildContentImage(),
-        ],
+            // Action (Follow button or Image)
+            if (notification.type == 'follow' && notification.actor != null)
+              _buildFollowButton(context)
+            else if (notification.contentImageUrl != null)
+              _buildContentImage(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAvatar() {
-    if (notification.type == NotificationType.ai) {
+    if (notification.type == 'ai') {
       return Container(
         width: 44,
         height: 44,
@@ -310,7 +309,7 @@ class _NotificationTile extends StatelessWidget {
         ),
         child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
       );
-    } else if (notification.type == NotificationType.system) {
+    } else if (notification.type == 'system') {
       return Container(
         width: 44,
         height: 44,
@@ -326,32 +325,54 @@ class _NotificationTile extends StatelessWidget {
       );
     }
 
+    final avatarUrl = notification.actor?.profilePicture;
+    if (avatarUrl != null) {
+      return CircleAvatar(
+        radius: 22,
+        backgroundImage: CachedNetworkImageProvider(avatarUrl),
+        backgroundColor: Colors.grey[300],
+      );
+    }
+
+    // Initials fallback
+    final name = notification.actor?.username ?? '?';
     return CircleAvatar(
       radius: 22,
-      backgroundImage: CachedNetworkImageProvider(notification.avatarUrl),
-      backgroundColor: Colors.grey[300],
+      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
   Widget _buildFollowButton(BuildContext context) {
+    // This button needs real state, but for now we won't implement full follow toggle inside notification list
+    // unless we wire up SocialProvider. For now, we can just show a button that navigates or shows status if we knew it.
+    // The notification doesn't inherently carry "am I following them back" state unless we computed it.
+    // Given the complexity, let's look at the original design.
+    // The original dummy data had 'isFollowing'. Our backend response doesn't strictly have this yet in NotificationResponse -> ActorInfo.
+    // We would need to join that info. For now, let's omit the sensitive toggle button or just keep it simple.
+    // Let's just create a generic "View" button or omit it if we don't have the state.
+    // Actually, users prefer to follow back right there. I'd need to check SocialProvider.
+
+    // We can use a FutureBuilder or Consumer to check if we follow this user, but that's heavy for a list.
+    // Let's simplified to just show "View Profile".
+
     return SizedBox(
       height: 32,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: onTap, // Handled in parent to navigate
         style: ElevatedButton.styleFrom(
-          backgroundColor: notification.isFollowing
-              ? (isDark ? Colors.grey[800] : Colors.grey[200])
-              : AppColors.primary,
+          backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
           elevation: 0,
-          foregroundColor: notification.isFollowing
-              ? (isDark ? Colors.white : Colors.black)
-              : Colors.white,
+          foregroundColor: isDark ? Colors.white : Colors.black,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: Text(
-          notification.isFollowing ? 'Following' : 'Follow',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        child: const Text(
+          'View',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
     );

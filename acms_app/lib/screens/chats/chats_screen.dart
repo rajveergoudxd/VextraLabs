@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/chat_provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
+import 'package:acms_app/providers/presence_provider.dart';
+import 'package:acms_app/widgets/online_users_bar.dart';
 
 /// Main chats screen showing conversation list (Instagram-style)
 class ChatsScreen extends StatefulWidget {
@@ -21,6 +23,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     // Load conversations when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatProvider>().loadConversations();
+      // Initialize presence tracking
+      context.read<PresenceProvider>().initialize();
     });
   }
 
@@ -33,6 +37,17 @@ class _ChatsScreenState extends State<ChatsScreen> {
       child: Column(
         children: [
           _buildHeader(isDark),
+          // Online users section
+          Consumer<PresenceProvider>(
+            builder: (context, presenceProvider, _) {
+              if (presenceProvider.onlineFollowing.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return OnlineUsersBar(
+                onlineUsers: presenceProvider.onlineFollowing,
+              );
+            },
+          ),
           Expanded(
             child: Consumer<ChatProvider>(
               builder: (context, chatProvider, _) {

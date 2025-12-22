@@ -184,6 +184,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       : (value) async {
                           await settingsProvider.updatePushNotifications(value);
                         },
+                  // ignore: deprecated_member_use
+                  activeColor: Colors.white,
                   activeTrackColor: AppColors.primary,
                 ),
                 isDark: isDark,

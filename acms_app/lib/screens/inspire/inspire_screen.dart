@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:acms_app/providers/inspire_provider.dart';
 
 class InspireScreen extends StatefulWidget {
   const InspireScreen({super.key});
@@ -10,6 +13,7 @@ class InspireScreen extends StatefulWidget {
 
 class _InspireScreenState extends State<InspireScreen> {
   int _selectedFilter = 0;
+  final ScrollController _scrollController = ScrollController();
   final List<String> _filters = [
     'For You',
     'Following',
@@ -18,80 +22,33 @@ class _InspireScreenState extends State<InspireScreen> {
     'AI Art',
   ];
 
-  // Mock posts data
-  final List<Map<String, dynamic>> _posts = [
-    {
-      'username': 'Sarah Chen',
-      'handle': '@sarahdesign',
-      'time': '2h',
-      'isVerified': true,
-      'avatarUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDwOJzcxSNHnglxDT2qHzkcWOc6PbRqYD4qt_zO7gz3rlHN6Z0dNLWSJhUZgX9lSVUsH1m83JYCLzx88eeKVqZ4kAV_xftyN758y9Z_NAAbebQ56WSIdiuxzE8d-24bM3W3yZfcZyKouWJuuzSuY7zOl4q3-wHT7aP5DHwXsVvu48yhVkgRH2PUljqzo1FYJn1L2rIWb8urJDTzgy2hmsqpNF0ZrDdm3zy7ERNw-nDOnhuz6nFJX1tZM1W0XKA5mNQtJM0syjRhkJU',
-      'content':
-          'Just generated these amazing abstract patterns for the new campaign using the AI tool. The color blending is incredible! 🎨✨ #AIart #DesignInspo',
-      'imageUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCQe9xTdd5QEKj1sYcln5gNaJ0Jt8svJWPtqbtRgrP5pi0MJ0vh4fMis3xubV37vfALXete49F_xximC-1yWM2AhEMPQi112UXfv_Zjp7O80zo-24cFtZRNjPtNJ4l0RKlaR6ENx7nsIFRcfnPsGVUEjOBzjuTnAU2bh2wqEK2xIx3myw87-MLRj3pTOjVYkbLmeGtvdHAVx1U_EBIEkuqaB2oj9TDzcF25v6xtYIM5eqLGK-1py3a74sNREYMjsl_be6U_2H7b6ro',
-      'likes': '2.4k',
-      'comments': '84',
-      'isLiked': false,
-      'isBookmarked': false,
-    },
-    {
-      'username': 'Marcus Flow',
-      'handle': '@marcus_dev',
-      'time': '5h',
-      'isVerified': false,
-      'avatarUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAVuKUxQZoi0KnGUCtydYnLSTFZrWnDUQW3nQcYQ8HKgGPwMp0d7o9dx6yETZiVFg16dbGn7IOhtsbhiDKP2s07xVZdNmZ-POmDpel6g6KP68muUIVZhBXIU8JG4wLkj9u_U8ICnHZVY7Kcty4plhQprpk6Ma9d_kGTJilAPZ463zG9ELOe2TzyMijvy2ND2d81WVdvyt9488-uD6ftQxqSvdAsTSDo3vERrGHqshuu5ITsmlaEv8T8xepr4Nnv2ZNhcyFNvx6xxd0',
-      'content':
-          'Workflow automation saved me 10 hours this week. Here is a snapshot of the new dashboard layout I\'m working on.',
-      'imageUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCQe9xTdd5QEKj1sYcln5gNaJ0Jt8svJWPtqbtRgrP5pi0MJ0vh4fMis3xubV37vfALXete49F_xximC-1yWM2AhEMPQi112UXfv_Zjp7O80zo-24cFtZRNjPtNJ4l0RKlaR6ENx7nsIFRcfnPsGVUEjOBzjuTnAU2bh2wqEK2xIx3myw87-MLRj3pTOjVYkbLmeGtvdHAVx1U_EBIEkuqaB2oj9TDzcF25v6xtYIM5eqLGK-1py3a74sNREYMjsl_be6U_2H7b6ro',
-      'likes': '10.2k',
-      'comments': '342',
-      'isLiked': true,
-      'isBookmarked': false,
-      'isVideo': true,
-    },
-    {
-      'username': 'Elena Light',
-      'handle': '@elena_creates',
-      'time': '8h',
-      'isVerified': false,
-      'avatarUrl': null,
-      'avatarInitials': 'EL',
-      'content':
-          'Testing the new voice-to-post feature. It\'s surprisingly accurate! 🎤📝',
-      'quote': {
-        'text': '"Creativity is intelligence having fun."',
-        'author': '— Albert Einstein',
-      },
-      'likes': '856',
-      'comments': '42',
-      'isLiked': false,
-      'isBookmarked': false,
-    },
-    {
-      'username': 'Alex Ryder',
-      'handle': '@alexryder_art',
-      'time': '12h',
-      'isVerified': true,
-      'avatarUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDwOJzcxSNHnglxDT2qHzkcWOc6PbRqYD4qt_zO7gz3rlHN6Z0dNLWSJhUZgX9lSVUsH1m83JYCLzx88eeKVqZ4kAV_xftyN758y9Z_NAAbebQ56WSIdiuxzE8d-24bM3W3yZfcZyKouWJuuzSuY7zOl4q3-wHT7aP5DHwXsVvu48yhVkgRH2PUljqzo1FYJn1L2rIWb8urJDTzgy2hmsqpNF0ZrDdm3zy7ERNw-nDOnhuz6nFJX1tZM1W0XKA5mNQtJM0syjRhkJU',
-      'content':
-          'Finally finished my portfolio redesign using Vextra\'s AI tools! The generated color schemes are absolutely stunning 💜 #Portfolio #AIDesign',
-      'imageUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAVuKUxQZoi0KnGUCtydYnLSTFZrWnDUQW3nQcYQ8HKgGPwMp0d7o9dx6yETZiVFg16dbGn7IOhtsbhiDKP2s07xVZdNmZ-POmDpel6g6KP68muUIVZhBXIU8JG4wLkj9u_U8ICnHZVY7Kcty4plhQprpk6Ma9d_kGTJilAPZ463zG9ELOe2TzyMijvy2ND2d81WVdvyt9488-uD6ftQxqSvdAsTSDo3vERrGHqshuu5ITsmlaEv8T8xepr4Nnv2ZNhcyFNvx6xxd0',
-      'likes': '5.1k',
-      'comments': '203',
-      'isLiked': false,
-      'isBookmarked': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Initial load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<InspireProvider>(context, listen: false).loadFeed();
+    });
+
+    // Infinite scroll listener
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        Provider.of<InspireProvider>(context, listen: false).loadFeed();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = Provider.of<InspireProvider>(context);
 
     return SafeArea(
       bottom: false,
@@ -102,15 +59,41 @@ class _InspireScreenState extends State<InspireScreen> {
 
           // Content
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 100),
-              itemCount: _posts.length + 1, // +1 for loading indicator
-              itemBuilder: (context, index) {
-                if (index == _posts.length) {
-                  return _buildLoadingIndicator();
-                }
-                return _buildPostCard(_posts[index], isDark);
-              },
+            child: RefreshIndicator(
+              onRefresh: () => provider.loadFeed(refresh: true),
+              child: provider.posts.isEmpty && provider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : provider.posts.isEmpty && !provider.isLoading
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.3,
+                        ),
+                        Center(
+                          child: Text(
+                            'No posts yet. Be the first to inspire!',
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 8, bottom: 100),
+                      itemCount:
+                          provider.posts.length + (provider.hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == provider.posts.length) {
+                          return _buildLoadingIndicator();
+                        }
+                        return _buildPostCard(provider.posts[index], isDark);
+                      },
+                    ),
             ),
           ),
         ],
@@ -147,7 +130,11 @@ class _InspireScreenState extends State<InspireScreen> {
                 ),
                 Row(
                   children: [
-                    _buildHeaderIcon(Icons.search, isDark),
+                    _buildHeaderIcon(
+                      Icons.search,
+                      isDark,
+                      onTap: () => context.push('/search'),
+                    ),
                     const SizedBox(width: 4),
                     Stack(
                       children: [
@@ -225,7 +212,7 @@ class _InspireScreenState extends State<InspireScreen> {
     );
   }
 
-  Widget _buildHeaderIcon(IconData icon, bool isDark) {
+  Widget _buildHeaderIcon(IconData icon, bool isDark, {VoidCallback? onTap}) {
     return Container(
       width: 40,
       height: 40,
@@ -237,7 +224,7 @@ class _InspireScreenState extends State<InspireScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () {},
+          onTap: onTap ?? () {},
           child: Icon(
             icon,
             color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -249,6 +236,12 @@ class _InspireScreenState extends State<InspireScreen> {
   }
 
   Widget _buildPostCard(Map<String, dynamic> post, bool isDark) {
+    final user = post['user'] ?? {};
+    final mediaUrls = post['media_urls'] as List?;
+    final imageUrl = mediaUrls != null && mediaUrls.isNotEmpty
+        ? mediaUrls[0]
+        : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -278,9 +271,10 @@ class _InspireScreenState extends State<InspireScreen> {
                       Row(
                         children: [
                           Text(
-                            post['username'],
+                            user['username'] ?? 'Unknown',
                             style: TextStyle(
                               fontSize: 14,
+
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : Colors.grey[900],
                             ),
@@ -303,7 +297,7 @@ class _InspireScreenState extends State<InspireScreen> {
                         ],
                       ),
                       Text(
-                        '${post['handle']} • ${post['time']}',
+                        '@${user['username']} • ${_formatTimeAgo(post['created_at'])}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                     ],
@@ -349,7 +343,8 @@ class _InspireScreenState extends State<InspireScreen> {
           const SizedBox(height: 12),
 
           // Image or Quote
-          if (post['imageUrl'] != null) _buildMediaContent(post, isDark),
+          if (imageUrl != null) _buildMediaContent(imageUrl, isDark),
+
           if (post['quote'] != null) _buildQuoteCard(post['quote'], isDark),
 
           // Action Buttons
@@ -360,7 +355,10 @@ class _InspireScreenState extends State<InspireScreen> {
   }
 
   Widget _buildAvatar(Map<String, dynamic> post) {
-    if (post['avatarUrl'] != null) {
+    final user = post['user'] ?? {};
+    final avatarUrl = user['profile_picture'];
+
+    if (avatarUrl != null) {
       return Stack(
         children: [
           Container(
@@ -370,11 +368,12 @@ class _InspireScreenState extends State<InspireScreen> {
               shape: BoxShape.circle,
               color: Colors.grey[300],
               image: DecorationImage(
-                image: NetworkImage(post['avatarUrl']),
+                image: NetworkImage(avatarUrl),
                 fit: BoxFit.cover,
               ),
             ),
           ),
+
           if (post['isVerified'] == true)
             Positioned(
               bottom: 0,
@@ -405,7 +404,10 @@ class _InspireScreenState extends State<InspireScreen> {
         ),
         child: Center(
           child: Text(
-            post['avatarInitials'] ?? '',
+            (user['username'] as String?)?.isNotEmpty == true
+                ? (user['username'] as String)[0].toUpperCase()
+                : '?',
+
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -445,43 +447,24 @@ class _InspireScreenState extends State<InspireScreen> {
     );
   }
 
-  Widget _buildMediaContent(Map<String, dynamic> post, bool isDark) {
+  Widget _buildMediaContent(String imageUrl, bool isDark) {
     return Stack(
       alignment: Alignment.center,
       children: [
         AspectRatio(
-          aspectRatio: post['isVideo'] == true ? 1 : 4 / 3,
+          aspectRatio:
+              4 / 3, // Default aspect ratio since we don't store it yet
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[900],
               image: DecorationImage(
-                image: NetworkImage(post['imageUrl']),
+                image: NetworkImage(imageUrl),
                 fit: BoxFit.cover,
-                colorFilter: post['isVideo'] == true
-                    ? ColorFilter.mode(
-                        Colors.black.withValues(alpha: 0.3),
-                        BlendMode.darken,
-                      )
-                    : null,
               ),
             ),
           ),
         ),
-        if (post['isVideo'] == true)
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.play_arrow_rounded,
-              color: Colors.black87,
-              size: 36,
-            ),
-          ),
       ],
     );
   }
@@ -537,18 +520,23 @@ class _InspireScreenState extends State<InspireScreen> {
           Row(
             children: [
               _buildActionButton(
-                icon: post['isLiked'] == true
+                icon: post['is_liked'] == true
                     ? Icons.favorite
                     : Icons.favorite_border,
-                label: post['likes'],
-                color: post['isLiked'] == true ? AppColors.primary : null,
+                label: '${post['likes_count'] ?? 0}',
+                color: post['is_liked'] == true ? Colors.red : null,
                 isDark: isDark,
+                onTap: () => Provider.of<InspireProvider>(
+                  context,
+                  listen: false,
+                ).likePost(post['id']),
               ),
               _buildActionButton(
                 icon: Icons.chat_bubble_outline,
-                label: post['comments'],
+                label: '${post['comments_count'] ?? 0}',
                 isDark: isDark,
               ),
+
               _buildActionButton(icon: Icons.send_outlined, isDark: isDark),
             ],
           ),
@@ -573,10 +561,12 @@ class _InspireScreenState extends State<InspireScreen> {
     String? label,
     Color? color,
     required bool isDark,
+    VoidCallback? onTap,
   }) {
     final defaultColor = isDark ? Colors.grey[500] : Colors.grey[600];
     return TextButton.icon(
-      onPressed: () {},
+      onPressed: onTap ?? () {},
+
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         minimumSize: Size.zero,
@@ -607,5 +597,17 @@ class _InspireScreenState extends State<InspireScreen> {
         ),
       ),
     );
+  }
+
+  String _formatTimeAgo(String? dateStr) {
+    if (dateStr == null) return '';
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 7) return '${date.day}/${date.month}';
+    if (diff.inDays > 0) return '${diff.inDays}d';
+    if (diff.inHours > 0) return '${diff.inHours}h';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
+    return 'now';
   }
 }
