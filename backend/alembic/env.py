@@ -29,6 +29,8 @@ from app.models.social_connection import SocialConnection
 from app.models.follow import Follow
 from app.models.conversation import Conversation, ConversationParticipant
 from app.models.message import Message
+from app.models.post import Post
+from app.models.notification import Notification
 
 target_metadata = Base.metadata
 
