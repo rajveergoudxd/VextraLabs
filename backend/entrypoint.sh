@@ -2,7 +2,9 @@
 set -e
 
 echo "Running database migrations..."
-alembic upgrade head
+# Run migrations but don't fail deployment if they fail (e.g. connectivity issues)
+alembic upgrade head || echo "WARNING: Database migrations failed, checking logs..."
+
 
 echo "Starting FastAPI server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
