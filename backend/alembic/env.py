@@ -39,6 +39,11 @@ def get_url():
     if not url:
         # Fallback or error, but let's assume it's set or in .env
         return "sqlite:///./sql_app.db"
+    
+    # Fix for SQLAlchemy 1.4+ (Heroku/Cloud Run often use postgres://)
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+        
     return url
 
 def run_migrations_offline() -> None:
