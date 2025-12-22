@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any
 from datetime import datetime
 
-from app.db.session import get_db
+from app.api import deps
 from app.models.user import User
 from app.models.social_connection import SocialConnection
 from app.schemas.social_connection import PublishRequest, PublishResponse
-from app.api.v1.endpoints.users import get_current_user
+from app.core.encryption import decrypt_token
 from app.core.encryption import decrypt_token
 from app.services.social import (
     InstagramService,
@@ -34,8 +34,8 @@ SERVICES = {
 @router.post("/", response_model=PublishResponse)
 async def publish_content(
     request: PublishRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ):
     """
     Publish content to one or more connected social platforms.

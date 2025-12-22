@@ -17,12 +17,11 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
-    USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
 
     # Google Cloud Storage
-    GCS_BUCKET_NAME: str = "" # Set in .env
-    GOOGLE_APPLICATION_CREDENTIALS: str = "" # Auto-detected or set via env
+    GCS_BUCKET_NAME: str = ""  # Set in .env
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""  # Auto-detected or set via env
 
     # OAuth - Meta (Instagram + Facebook)
     META_APP_ID: str = ""
@@ -39,6 +38,16 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_SECRET: str = ""
     LINKEDIN_REDIRECT_URI: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # OAuth - Threads
+    THREADS_APP_ID: str = ""
+    THREADS_APP_SECRET: str = ""
+    THREADS_REDIRECT_URI: str = ""
+
+    # Ignore extra environment variables to prevent validation errors
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 settings = Settings()

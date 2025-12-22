@@ -337,7 +337,7 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
                       title: 'AI Caption',
                       subtitle: 'Generate text',
                       onTap: () {
-                        // TODO: Implement AI caption generation
+                        // Future: AI caption generation
                         context.push('/create/craft-post');
                       },
                       isDark: isDark,
@@ -365,7 +365,7 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
                       title: 'Save',
                       subtitle: 'Use later',
                       onTap: () {
-                        // TODO: Implement save to library
+                        // Future: Save to library functionality
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Saved to library'),

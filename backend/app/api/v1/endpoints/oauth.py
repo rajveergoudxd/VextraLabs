@@ -8,7 +8,7 @@ from typing import List
 import secrets
 from datetime import datetime
 
-from app.db.session import get_db
+from app.api import deps
 from app.models.user import User
 from app.models.social_connection import SocialConnection
 from app.schemas.social_connection import (
@@ -17,7 +17,6 @@ from app.schemas.social_connection import (
     OAuthAuthorizeResponse,
     OAuthCallbackRequest,
 )
-from app.api.v1.endpoints.users import get_current_user
 from app.core.encryption import encrypt_token, decrypt_token
 from app.services.social import (
     InstagramService,
@@ -42,8 +41,8 @@ OAUTH_STATES = {}
 
 @router.get("/connections", response_model=SocialConnectionList)
 async def get_connections(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ):
     """Get all social connections for the authenticated user"""
     connections = db.query(SocialConnection).filter(
@@ -76,7 +75,7 @@ async def get_connections(
 @router.get("/{platform}/authorize", response_model=OAuthAuthorizeResponse)
 async def authorize(
     platform: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Get OAuth authorization URL for a platform"""
     if platform not in SERVICES:
@@ -106,7 +105,7 @@ async def authorize(
 async def callback(
     platform: str,
     request: OAuthCallbackRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(deps.get_db),
 ):
     """Handle OAuth callback and store tokens"""
     if platform not in SERVICES:
@@ -190,8 +189,8 @@ async def callback(
 @router.delete("/{platform}/disconnect")
 async def disconnect(
     platform: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ):
     """Disconnect a social platform"""
     connection = db.query(SocialConnection).filter(
@@ -223,8 +222,8 @@ async def disconnect(
 @router.post("/{platform}/refresh")
 async def refresh_token(
     platform: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ):
     """Refresh access token for a platform"""
     connection = db.query(SocialConnection).filter(
