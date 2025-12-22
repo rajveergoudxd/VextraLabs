@@ -7,7 +7,7 @@ from app.db.session import engine
 
 
 # Create Tables (for anything not covered by migrations, though migrations should cover all)
-Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
