@@ -2,7 +2,7 @@
 set -e
 
 echo "Waiting for database connection..."
-python app/backend_pre_start.py
+python -m app.backend_pre_start
 
 echo "Running database migrations..."
 # Run migrations but don't fail deployment if they fail (e.g. connectivity issues)
