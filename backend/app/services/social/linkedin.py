@@ -16,7 +16,7 @@ class LinkedInService(BaseSocialService):
     
     API_BASE = "https://api.linkedin.com/v2"
     OAUTH_BASE = "https://www.linkedin.com/oauth/v2"
-    API_VERSION = "202401"  # LinkedIn API version header
+    API_VERSION = "202412"  # LinkedIn API version header (YYYYMM format, update when expired)
     
     # Required scopes for posting to profile
     SCOPES = [

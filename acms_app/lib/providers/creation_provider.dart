@@ -66,8 +66,8 @@ class CreationProvider extends ChangeNotifier {
   final Map<String, String> _captions = {}; // Platform -> Caption
   final Map<String, EditState> _editStates = {}; // URL -> EditState
 
-  // Platform Selection
-  final List<String> _platforms = ['Inspire']; // Default always selected
+  // Platform Selection - Inspire and LinkedIn active by default
+  final List<String> _platforms = ['Inspire', 'LinkedIn'];
 
   // Service
   final PostService _postService = PostService();
@@ -160,6 +160,9 @@ class CreationProvider extends ChangeNotifier {
       if (content.isEmpty && _captions.isNotEmpty) {
         content = _captions.values.first;
       }
+      debugPrint(
+        '[PUBLISH] Content: ${content.substring(0, content.length > 50 ? 50 : content.length)}...',
+      );
 
       // Map display names to API keys
       // UI: "X (Twitter)" -> API: "twitter"
@@ -167,18 +170,25 @@ class CreationProvider extends ChangeNotifier {
         if (p == 'X (Twitter)' || p == 'Twitter') return 'twitter';
         return p.toLowerCase();
       }).toList();
+      debugPrint('[PUBLISH] Platforms: $apiPlatforms');
 
       // Upload local media files to cloud storage first
       List<String> mediaUrls = [];
       if (_selectedMedia.isNotEmpty) {
+        debugPrint(
+          '[PUBLISH] Uploading ${_selectedMedia.length} media files...',
+        );
         mediaUrls = await _postService.uploadMultipleMedia(_selectedMedia);
+        debugPrint('[PUBLISH] Uploaded URLs: $mediaUrls');
       }
 
+      debugPrint('[PUBLISH] Calling publishPost API...');
       final response = await _postService.publishPost(
         content: content,
         mediaUrls: mediaUrls,
         platforms: apiPlatforms,
       );
+      debugPrint('[PUBLISH] API Response: $response');
 
       // Store the full response for detailed status
       _publishResults = response;
@@ -186,6 +196,7 @@ class CreationProvider extends ChangeNotifier {
       // Check if overall success
       if (response['success'] == true) {
         _publishSuccess = true;
+        debugPrint('[PUBLISH] Success!');
       } else {
         // Build error message from failed platforms
         final results = response['results'] as Map<String, dynamic>?;
@@ -202,8 +213,11 @@ class CreationProvider extends ChangeNotifier {
           }
         }
         _publishSuccess = false;
+        debugPrint('[PUBLISH] Partial/Failed: $_publishError');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[PUBLISH] ERROR: $e');
+      debugPrint('[PUBLISH] Stack trace: $stackTrace');
       _publishError = e.toString();
       _publishSuccess = false;
     } finally {
