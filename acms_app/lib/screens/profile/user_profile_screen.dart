@@ -8,27 +8,37 @@ import 'package:acms_app/providers/chat_provider.dart';
 
 /// View another user's public profile
 class UserProfileScreen extends StatefulWidget {
-  final String username;
+  final int userId;
 
-  const UserProfileScreen({super.key, required this.username});
+  const UserProfileScreen({super.key, required this.userId});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  // Store provider reference for safe disposal
+  SocialProvider? _socialProvider;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SocialProvider>().loadProfile(widget.username);
+      context.read<SocialProvider>().loadProfileById(widget.userId);
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Save reference to SocialProvider for safe use in dispose()
+    _socialProvider = context.read<SocialProvider>();
+  }
+
+  @override
   void dispose() {
-    // Clear profile when leaving
-    context.read<SocialProvider>().clearProfile();
+    // Use saved reference instead of context.read()
+    _socialProvider?.clearProfile();
     super.dispose();
   }
 

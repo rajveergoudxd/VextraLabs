@@ -189,6 +189,25 @@ class SocialProvider extends ChangeNotifier {
     }
   }
 
+  /// Load public profile by user ID
+  Future<void> loadProfileById(int userId) async {
+    _isLoadingProfile = true;
+    _profileError = null;
+    _currentProfile = null;
+    notifyListeners();
+
+    try {
+      final response = await _socialService.getPublicProfileById(userId);
+      _currentProfile = PublicProfile.fromJson(response);
+    } catch (e) {
+      _profileError = 'Failed to load profile';
+      debugPrint('Profile load error: $e');
+    } finally {
+      _isLoadingProfile = false;
+      notifyListeners();
+    }
+  }
+
   /// Follow a user
   Future<bool> followUser(int userId) async {
     _isFollowActionLoading = true;

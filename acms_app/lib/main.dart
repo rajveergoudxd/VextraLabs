@@ -342,10 +342,10 @@ class AcmsApp extends StatelessWidget {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
-        path: '/user/:username',
+        path: '/user/:userId',
         builder: (context, state) {
-          final username = state.pathParameters['username']!;
-          return UserProfileScreen(username: username);
+          final userId = int.parse(state.pathParameters['userId']!);
+          return UserProfileScreen(userId: userId);
         },
       ),
     ],

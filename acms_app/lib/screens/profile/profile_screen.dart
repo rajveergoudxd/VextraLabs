@@ -40,6 +40,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       fontWeight: FontWeight.w500,
     );
 
+    // Determine display name safely using local variable for type promotion
+    String displayName = 'Profile';
+    final currentUser = user; // Local variable enables type promotion
+    if (currentUser != null) {
+      // username is String?, fullName is String (non-nullable)
+      if (currentUser.username != null && currentUser.username!.isNotEmpty) {
+        displayName = currentUser.username!;
+      } else if (currentUser.fullName.isNotEmpty) {
+        displayName = currentUser.fullName;
+      }
+    }
+
     Widget content = CustomScrollView(
       slivers: [
         // Sticky Header
@@ -57,11 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
           automaticallyImplyLeading: !widget.isEmbedded,
           title: Text(
-            user?.username?.isNotEmpty == true
-                ? user!.username!
-                : (user?.fullName.isNotEmpty == true
-                      ? user!.fullName
-                      : 'Profile'),
+            displayName,
             style: TextStyle(
               color: isDark ? Colors.white : Colors.black,
               fontWeight: FontWeight.bold,
@@ -112,47 +120,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     // Avatar
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 88,
-                          height: 88,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            image: user?.profilePicture != null
-                                ? DecorationImage(
-                                    image: CachedNetworkImageProvider(
-                                      user!.profilePicture!,
-                                    ),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                            color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          ),
-                          child: user?.profilePicture == null
-                              ? Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: isDark
-                                      ? Colors.grey[600]
-                                      : Colors.grey[400],
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
+                    // Avatar
+                    _buildProfileAvatar(user?.profilePicture, isDark),
                     const SizedBox(width: 24),
                     // Stats Expanded
                     Expanded(
@@ -470,6 +439,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileAvatar(String? profilePicture, bool isDark) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.2),
+              width: 2,
+            ),
+          ),
+        ),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isDark ? Colors.grey[800] : Colors.grey[200],
+          ),
+          child: profilePicture != null && profilePicture.isNotEmpty
+              ? ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: profilePicture,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    ),
+                    errorWidget: (context, url, error) => Icon(
+                      Icons.person,
+                      size: 40,
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.person,
+                  size: 40,
+                  color: isDark ? Colors.grey[600] : Colors.grey[400],
+                ),
+        ),
+      ],
     );
   }
 }

@@ -318,3 +318,46 @@ def get_public_profile(
         is_following=is_following,
         is_followed_by=is_followed_by
     )
+
+
+@router.get("/profile/id/{user_id}", response_model=PublicProfile)
+def get_public_profile_by_id(
+    user_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+) -> PublicProfile:
+    """Get public profile of a user by user ID."""
+    user = db.query(UserModel).filter(
+        UserModel.id == user_id,
+        UserModel.is_active == True
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Check follow status
+    is_following = db.query(Follow).filter(
+        Follow.follower_id == current_user.id,
+        Follow.following_id == user.id
+    ).first() is not None
+    
+    is_followed_by = db.query(Follow).filter(
+        Follow.follower_id == user.id,
+        Follow.following_id == current_user.id
+    ).first() is not None
+    
+    return PublicProfile(
+        id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        bio=user.bio,
+        profile_picture=user.profile_picture,
+        posts_count=user.posts_count or 0,
+        followers_count=user.followers_count or 0,
+        following_count=user.following_count or 0,
+        is_following=is_following,
+        is_followed_by=is_followed_by
+    )

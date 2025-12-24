@@ -181,8 +181,8 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
           user: user,
           isDark: isDark,
           onTap: () {
-            // Navigate to user profile
-            context.push('/user/${user.username}');
+            // Navigate to user profile using ID (always available)
+            context.push('/user/${user.id}');
           },
           onFollowTap: () async {
             await provider.toggleFollow(user.id, user.isFollowing);

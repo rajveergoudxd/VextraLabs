@@ -27,6 +27,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showEmojiPicker = false;
   Timer? _typingTimer;
 
+  // Store provider reference for safe disposal
+  ChatProvider? _chatProvider;
+
   @override
   void initState() {
     super.initState();
@@ -36,9 +39,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Save reference to ChatProvider for safe use in dispose()
+    _chatProvider = context.read<ChatProvider>();
+  }
+
+  @override
   void dispose() {
     _typingTimer?.cancel();
-    context.read<ChatProvider>().leaveChat();
+    // Use saved reference instead of context.read()
+    _chatProvider?.leaveChat();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -77,7 +88,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     context.read<ChatProvider>().sendTyping(false);
 
     final success = await context.read<ChatProvider>().sendMessage(text);
-    if (success) {
+    if (success && mounted) {
       _scrollToBottom();
     }
   }
@@ -91,7 +102,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (image != null && mounted) {
       final success = await chatProvider.sendMediaMessage(File(image.path));
-      if (success) {
+      if (success && mounted) {
         _scrollToBottom();
       }
     }
@@ -106,7 +117,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (photo != null && mounted) {
       final success = await chatProvider.sendMediaMessage(File(photo.path));
-      if (success) {
+      if (success && mounted) {
         _scrollToBottom();
       }
     }

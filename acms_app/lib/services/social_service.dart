@@ -70,4 +70,10 @@ class SocialService {
     final response = await _apiClient.dio.get('/social/profile/$username');
     return response.data;
   }
+
+  /// Get public profile by user ID
+  Future<Map<String, dynamic>> getPublicProfileById(int userId) async {
+    final response = await _apiClient.dio.get('/social/profile/id/$userId');
+    return response.data;
+  }
 }
