@@ -123,16 +123,28 @@ class LinkedInService(BaseSocialService):
         media_urls: Optional[List[str]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Publish a post to LinkedIn using the REST API"""
+        """Publish a post to LinkedIn using the REST API with image support"""
         import logging
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             # Get user's URN
             user_info = await self._get_user_info(client, access_token)
             author_urn = f"urn:li:person:{user_info['sub']}"
             
             logging.info(f"Publishing to LinkedIn for author: {author_urn}")
             logging.info(f"Using LinkedIn API version: {self.API_VERSION}")
+            
+            # Upload images if provided
+            image_urns = []
+            if media_urls and len(media_urls) > 0:
+                for media_url in media_urls[:1]:  # LinkedIn allows 1 image per post for basic API
+                    try:
+                        image_urn = await self._upload_image(client, access_token, author_urn, media_url)
+                        if image_urn:
+                            image_urns.append(image_urn)
+                            logging.info(f"Uploaded image: {image_urn}")
+                    except Exception as e:
+                        logging.error(f"Failed to upload image {media_url}: {e}")
             
             # Build post payload for REST API
             payload = {
@@ -148,11 +160,14 @@ class LinkedInService(BaseSocialService):
                 "isReshareDisabledByAuthor": False,
             }
             
-            # Add media if provided (images as external URLs)
-            if media_urls and len(media_urls) > 0:
-                # For now, share first image as article/link preview
-                # Full image posting requires LinkedIn's image upload flow
-                logging.info(f"Media URLs provided: {media_urls}")
+            # Add image content if we have uploaded images
+            if image_urns:
+                payload["content"] = {
+                    "media": {
+                        "id": image_urns[0]
+                    }
+                }
+                logging.info(f"Post includes image: {image_urns[0]}")
             
             # Use the REST API endpoint (not v2)
             response = await client.post(
@@ -185,6 +200,70 @@ class LinkedInService(BaseSocialService):
                 "post_id": post_urn,
                 "url": f"https://www.linkedin.com/feed/update/{post_urn}/",
             }
+
+    async def _upload_image(
+        self, 
+        client: httpx.AsyncClient, 
+        access_token: str, 
+        owner_urn: str, 
+        image_url: str
+    ) -> Optional[str]:
+        """Upload an image to LinkedIn and return its URN"""
+        import logging
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "LinkedIn-Version": self.API_VERSION,
+            "X-Restli-Protocol-Version": "2.0.0",
+        }
+        
+        # Step 1: Initialize upload
+        init_response = await client.post(
+            "https://api.linkedin.com/rest/images?action=initializeUpload",
+            headers=headers,
+            json={
+                "initializeUploadRequest": {
+                    "owner": owner_urn
+                }
+            }
+        )
+        
+        if init_response.status_code != 200:
+            logging.error(f"LinkedIn image init failed: {init_response.text}")
+            return None
+        
+        init_data = init_response.json()
+        upload_url = init_data["value"]["uploadUrl"]
+        image_urn = init_data["value"]["image"]
+        
+        logging.info(f"Got upload URL for image: {image_urn}")
+        
+        # Step 2: Download image from our GCS URL
+        image_response = await client.get(image_url)
+        if image_response.status_code != 200:
+            logging.error(f"Failed to download image from {image_url}")
+            return None
+        
+        image_bytes = image_response.content
+        content_type = image_response.headers.get("content-type", "image/jpeg")
+        
+        # Step 3: Upload binary to LinkedIn
+        upload_response = await client.put(
+            upload_url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": content_type,
+            },
+            content=image_bytes
+        )
+        
+        if upload_response.status_code not in (200, 201):
+            logging.error(f"LinkedIn image upload failed: {upload_response.status_code} - {upload_response.text}")
+            return None
+        
+        logging.info(f"Image uploaded successfully: {image_urn}")
+        return image_urn
 
     async def revoke_access(self, access_token: str) -> bool:
         """LinkedIn doesn't have a revocation endpoint - just delete from our DB"""
