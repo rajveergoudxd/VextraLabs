@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/social_connections_provider.dart';
+import 'package:acms_app/screens/profile/oauth_webview_screen.dart';
+import 'package:acms_app/core/config.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 class EditProfileScreen extends StatefulWidget {
@@ -42,6 +43,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _twitterController.text = user.twitter ?? '';
       _facebookController.text = user.facebook ?? '';
     }
+    // Load OAuth connections
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<SocialConnectionsProvider>(
+        context,
+        listen: false,
+      ).loadConnections();
+    });
   }
 
   @override
@@ -117,6 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final authProvider = Provider.of<AuthProvider>(context);
+    final connectionsProvider = Provider.of<SocialConnectionsProvider>(context);
     final user = authProvider.user;
 
     return Scaffold(
@@ -221,7 +230,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'Instagram',
               FontAwesomeIcons.instagram,
               const Color(0xFFE1306C),
-              user?.instagram,
+              _getConnectionUsername(connectionsProvider, 'instagram'),
               isDark,
               onConnect: () => _showConnectDialog('Instagram'),
               onDisconnect: () => _disconnectPlatform('instagram'),
@@ -230,7 +239,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'LinkedIn',
               FontAwesomeIcons.linkedin,
               const Color(0xFF0077B5),
-              user?.linkedin,
+              _getConnectionUsername(connectionsProvider, 'linkedin'),
               isDark,
               onConnect: () => _showConnectDialog('LinkedIn'),
               onDisconnect: () => _disconnectPlatform('linkedin'),
@@ -239,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'Twitter / X',
               FontAwesomeIcons.xTwitter,
               isDark ? Colors.white : Colors.black,
-              user?.twitter,
+              _getConnectionUsername(connectionsProvider, 'twitter'),
               isDark,
               onConnect: () => _showConnectDialog('Twitter'),
               onDisconnect: () => _disconnectPlatform('twitter'),
@@ -248,7 +257,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'Facebook',
               FontAwesomeIcons.facebook,
               const Color(0xFF1877F2),
-              user?.facebook,
+              _getConnectionUsername(connectionsProvider, 'facebook'),
               isDark,
               onConnect: () => _showConnectDialog('Facebook'),
               onDisconnect: () => _disconnectPlatform('facebook'),
@@ -580,6 +589,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  /// Get username for a connected platform
+  String? _getConnectionUsername(
+    SocialConnectionsProvider provider,
+    String platform,
+  ) {
+    final connection = provider.getConnection(platform);
+    if (connection != null && connection.isTokenValid) {
+      return connection.platformUsername ??
+          connection.platformDisplayName ??
+          'Connected';
+    }
+    return null;
+  }
+
   Future<void> _launchOAuth(String platform) async {
     try {
       final provider = Provider.of<SocialConnectionsProvider>(
@@ -589,16 +612,74 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final authResponse = await provider.getAuthorizationUrl(platform);
 
       if (authResponse != null) {
-        final uri = Uri.parse(authResponse.authorizationUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
+        // Construct the redirect URI that the backend expects
+        final redirectUri = '${Config.baseUrl}/oauth/$platform/callback';
+
+        // Navigate to OAuth WebView screen
+        if (mounted) {
+          final result = await Navigator.of(context).push<OAuthResult>(
+            MaterialPageRoute(
+              builder: (context) => OAuthWebViewScreen(
+                platform: platform,
+                authorizationUrl: authResponse.authorizationUrl,
+                redirectUri: redirectUri,
+                state: authResponse.state,
+              ),
+            ),
+          );
+
+          // Handle the OAuth result
+          if (result != null && mounted) {
+            // Show loading indicator
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Could not launch authorization URL'),
+                content: Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Connecting account...'),
+                  ],
+                ),
+                duration: Duration(seconds: 10),
               ),
             );
+
+            // Send the code to the backend
+            final success = await provider.handleCallback(
+              platform,
+              result.code,
+              result.state,
+            );
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${platform[0].toUpperCase()}${platform.substring(1)} connected successfully!',
+                    ),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Failed to connect: ${provider.error ?? "Unknown error"}',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
           }
         }
       } else {

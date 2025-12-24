@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
@@ -299,10 +299,7 @@ class _EditMediaScreenState extends State<EditMediaScreen> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(2),
-                              child: CachedNetworkImage(
-                                imageUrl: selectedMedia[index],
-                                fit: BoxFit.cover,
-                              ),
+                              child: _buildMediaImage(selectedMedia[index]),
                             ),
                           ),
                         );
@@ -497,10 +494,7 @@ class _EditMediaScreenState extends State<EditMediaScreen> {
                                 0,
                               ].map((e) => e.toDouble()).toList(),
                       ),
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                      ),
+                      child: _buildMediaImage(url, fit: BoxFit.cover),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -678,7 +672,7 @@ class _EditMediaScreenState extends State<EditMediaScreen> {
 
     final adjMatrix = _calcAdjustmentMatrix(b, c, s);
 
-    Widget image = CachedNetworkImage(imageUrl: url, fit: BoxFit.cover);
+    Widget image = _buildMediaImage(url, fit: BoxFit.cover);
 
     // Apply Filter first (mimicking filters usually being base LUTs)
     image = ColorFiltered(
@@ -785,5 +779,53 @@ class _EditMediaScreenState extends State<EditMediaScreen> {
       1,
       0,
     ];
+  }
+
+  /// Helper to display media from either local file path or network URL
+  Widget _buildMediaImage(String path, {BoxFit fit = BoxFit.contain}) {
+    // Check if it's a local file path
+    if (path.startsWith('/') || path.startsWith('file://')) {
+      return Image.file(
+        File(path.replaceFirst('file://', '')),
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[800],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            ),
+          );
+        },
+      );
+    } else {
+      // Network URL
+      return Image.network(
+        path,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey[900],
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                    : null,
+                color: AppColors.primary,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[800],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            ),
+          );
+        },
+      );
+    }
   }
 }

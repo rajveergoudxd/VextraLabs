@@ -13,15 +13,18 @@ class CraftPostScreen extends StatefulWidget {
 }
 
 class _CraftPostScreenState extends State<CraftPostScreen> {
-  String _activePlatform = 'Instagram';
+  String _activePlatform = 'LinkedIn';
   late TextEditingController _captionController;
 
+  // LinkedIn is active, others coming soon
   final List<String> _platforms = [
+    'LinkedIn',
     'Instagram',
     'Facebook',
     'Twitter',
-    'LinkedIn',
   ];
+
+  bool _isPlatformAvailable(String platform) => platform == 'LinkedIn';
 
   @override
   void initState() {
@@ -47,11 +50,34 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
   }
 
   void _switchPlatform(String platform) {
+    // Only allow switching to LinkedIn - others are coming soon
+    if (!_isPlatformAvailable(platform)) {
+      _showComingSoonSnackbar(platform);
+      return;
+    }
     setState(() {
       _activePlatform = platform;
     });
     final provider = Provider.of<CreationProvider>(context, listen: false);
     _captionController.text = provider.captions[platform] ?? '';
+  }
+
+  void _showComingSoonSnackbar(String platform) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.schedule, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Text('$platform support coming soon!'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -419,12 +445,31 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
       icon = Icons.public;
     } else if (title == 'Twitter') {
       icon = Icons.flutter_dash;
-    } else {
+    } else if (title == 'LinkedIn') {
       icon = Icons.business_center;
+    } else {
+      icon = Icons.public;
     }
 
     final isActive = _activePlatform == title;
+    final isAvailable = _isPlatformAvailable(title);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Colors based on availability
+    final Color iconColor;
+    final Color textColor;
+
+    if (!isAvailable) {
+      // Greyed out for unavailable platforms
+      iconColor = isDark ? Colors.grey[700]! : Colors.grey[400]!;
+      textColor = isDark ? Colors.grey[700]! : Colors.grey[400]!;
+    } else if (isActive) {
+      iconColor = AppColors.primary;
+      textColor = AppColors.primary;
+    } else {
+      iconColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+      textColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+    }
 
     return GestureDetector(
       onTap: () => _switchPlatform(title),
@@ -433,29 +478,54 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive ? AppColors.primary : Colors.transparent,
+              color: isActive && isAvailable
+                  ? AppColors.primary
+                  : Colors.transparent,
               width: 2,
             ),
           ),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isActive
-                  ? AppColors.primary
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-              size: 20,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: iconColor, size: 20),
+                // "Soon" badge for unavailable platforms
+                if (!isAvailable)
+                  Positioned(
+                    right: -20,
+                    top: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Soon',
+                        style: TextStyle(
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               title,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                color: isActive
-                    ? AppColors.primary
-                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                fontWeight: isActive && isAvailable
+                    ? FontWeight.bold
+                    : FontWeight.w500,
+                color: textColor,
               ),
             ),
           ],

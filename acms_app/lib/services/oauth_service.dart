@@ -8,7 +8,7 @@ class OAuthService {
 
   // Replace with your actual backend URL
   static const String _baseUrl =
-      'https://vextra-backend-320435301102.us-central1.run.app/api/v1';
+      'https://vextra-backend-842753730816.us-central1.run.app/api/v1';
 
   OAuthService()
     : _dio = Dio(
