@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
+import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 
 class PublishedSuccessScreen extends StatelessWidget {
@@ -9,6 +11,22 @@ class PublishedSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final creationProvider = Provider.of<CreationProvider>(context);
+    final results =
+        creationProvider.publishResults?['results'] as Map<String, dynamic>?;
+
+    // Build platform status list
+    final platformResults = <Map<String, dynamic>>[];
+    if (results != null) {
+      results.forEach((platform, result) {
+        platformResults.add({
+          'name':
+              platform.substring(0, 1).toUpperCase() + platform.substring(1),
+          'success': result['success'] == true,
+          'error': result['error'],
+        });
+      });
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -63,29 +81,84 @@ class PublishedSuccessScreen extends StatelessWidget {
               const SizedBox(height: 48),
 
               Text(
-                'Posts Published!',
+                'Published!',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black,
                 ),
               ).animate().fadeIn().moveY(begin: 20, end: 0),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              Text(
-                'Your content is now live on LinkedIn, Twitter, and Instagram.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  height: 1.5,
-                ),
-              ).animate().fadeIn(delay: 200.ms).moveY(begin: 20, end: 0),
+              // Platform Results
+              if (platformResults.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: platformResults.map((result) {
+                      final isSuccess = result['success'] as bool;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSuccess ? Icons.check_circle : Icons.error,
+                              color: isSuccess ? AppColors.success : Colors.red,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    result['name'] as String,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  if (!isSuccess && result['error'] != null)
+                                    Text(
+                                      result['error'] as String,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.red[400],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ).animate().fadeIn(delay: 200.ms).moveY(begin: 20, end: 0),
+              ] else
+                Text(
+                  'Your content is now live!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    height: 1.5,
+                  ),
+                ).animate().fadeIn(delay: 200.ms).moveY(begin: 20, end: 0),
 
               const Spacer(),
 
               ElevatedButton(
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  creationProvider.reset();
+                  context.go('/home');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

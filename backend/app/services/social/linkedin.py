@@ -123,13 +123,17 @@ class LinkedInService(BaseSocialService):
         media_urls: Optional[List[str]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Publish a post to LinkedIn"""
+        """Publish a post to LinkedIn using the REST API"""
+        import logging
+        
         async with httpx.AsyncClient() as client:
             # Get user's URN
             user_info = await self._get_user_info(client, access_token)
             author_urn = f"urn:li:person:{user_info['sub']}"
             
-            # Build post payload
+            logging.info(f"Publishing to LinkedIn for author: {author_urn}")
+            
+            # Build post payload for REST API
             payload = {
                 "author": author_urn,
                 "commentary": content,
@@ -143,15 +147,15 @@ class LinkedInService(BaseSocialService):
                 "isReshareDisabledByAuthor": False,
             }
             
-            # Add media if provided
-            if media_urls:
-                # For images, we need to upload them first (simplified version)
-                # Full implementation would use the Assets API
-                pass
+            # Add media if provided (images as external URLs)
+            if media_urls and len(media_urls) > 0:
+                # For now, share first image as article/link preview
+                # Full image posting requires LinkedIn's image upload flow
+                logging.info(f"Media URLs provided: {media_urls}")
             
-            # Create post
+            # Use the REST API endpoint (not v2)
             response = await client.post(
-                f"{self.API_BASE}/posts",
+                "https://api.linkedin.com/rest/posts",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
@@ -161,12 +165,20 @@ class LinkedInService(BaseSocialService):
                 json=payload
             )
             
+            logging.info(f"LinkedIn API response status: {response.status_code}")
+            
             if response.status_code not in (200, 201):
-                error_data = response.json() if response.content else {}
-                raise Exception(f"Failed to post: {error_data}")
+                error_text = response.text if response.content else "No response body"
+                logging.error(f"LinkedIn post failed: {error_text}")
+                try:
+                    error_data = response.json()
+                except:
+                    error_data = {"message": error_text}
+                raise Exception(f"LinkedIn API error: {error_data.get('message', error_text)}")
             
             # LinkedIn returns the post URN in the header
             post_urn = response.headers.get("x-restli-id", "")
+            logging.info(f"LinkedIn post created successfully: {post_urn}")
             
             return {
                 "post_id": post_urn,
