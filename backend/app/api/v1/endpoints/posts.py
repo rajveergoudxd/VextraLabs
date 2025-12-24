@@ -84,60 +84,9 @@ def get_feed(
         "has_more": (skip + size) < total
     }
 
-@router.get("/{post_id}", response_model=post_schema.Post)
-def get_post(
-    post_id: int,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Get post by ID.
-    """
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-        
-    result = post_schema.Post.from_orm(post)
-    result.user = {
-        "id": post.owner.id,
-        "username": post.owner.username,
-        "full_name": post.owner.full_name,
-        "profile_picture": post.owner.profile_picture,
-        "is_verified": False,
-    }
-    return result
-
-@router.post("/{post_id}/like", response_model=post_schema.Post)
-def like_post(
-    post_id: int,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
-) -> Any:
-    """
-    Like a post.
-    """
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    # In a real app reduce redundant likes by checking a Like table
-    # Here we just increment for simplicity as per request
-    post.likes_count += 1
-    db.commit()
-    db.refresh(post)
-    
-    result = post_schema.Post.from_orm(post)
-    result.user = {
-        "id": post.owner.id,
-        "username": post.owner.username,
-        "full_name": post.owner.full_name,
-        "profile_picture": post.owner.profile_picture,
-        "is_verified": False,
-    }
-    return result
-
 
 # ============== Draft Endpoints ==============
+# NOTE: These MUST come BEFORE /{post_id} routes to avoid path parameter conflicts
 
 @router.post("/drafts", response_model=post_schema.Post)
 def create_draft(
@@ -334,4 +283,61 @@ def publish_draft(
         "is_verified": False,
     }
     return result
+
+
+# ============== Individual Post Endpoints ==============
+# NOTE: These MUST come AFTER /drafts routes
+
+@router.get("/{post_id}", response_model=post_schema.Post)
+def get_post(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get post by ID.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    result = post_schema.Post.from_orm(post)
+    result.user = {
+        "id": post.owner.id,
+        "username": post.owner.username,
+        "full_name": post.owner.full_name,
+        "profile_picture": post.owner.profile_picture,
+        "is_verified": False,
+    }
+    return result
+
+@router.post("/{post_id}/like", response_model=post_schema.Post)
+def like_post(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Like a post.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # In a real app reduce redundant likes by checking a Like table
+    # Here we just increment for simplicity as per request
+    post.likes_count += 1
+    db.commit()
+    db.refresh(post)
+    
+    result = post_schema.Post.from_orm(post)
+    result.user = {
+        "id": post.owner.id,
+        "username": post.owner.username,
+        "full_name": post.owner.full_name,
+        "profile_picture": post.owner.profile_picture,
+        "is_verified": False,
+    }
+    return result
+
 
