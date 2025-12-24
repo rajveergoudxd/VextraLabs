@@ -60,206 +60,235 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Profile Section - Real user data
-            Container(
+      body: settingsProvider.isLoading && settingsProvider.settings.id == 0
+          ? const Center(child: CircularProgressIndicator())
+          : settingsProvider.error != null && settingsProvider.settings.id == 0
+          ? _buildErrorState(isDark, settingsProvider)
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? Colors.transparent : Colors.grey[100]!,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
+              child: Column(
                 children: [
+                  // Profile Section - Real user data
                   Container(
-                    width: 64,
-                    height: 64,
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary, width: 2),
-                      color: isDark ? Colors.grey[800] : Colors.grey[200],
-                      image: user?.profilePicture != null
-                          ? DecorationImage(
-                              image: CachedNetworkImageProvider(
-                                user!.profilePicture!,
-                              ),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
+                      color: isDark ? AppColors.surfaceDark : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? Colors.transparent : Colors.grey[100]!,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: user?.profilePicture == null
-                        ? Icon(
-                            Icons.person,
-                            size: 30,
-                            color: isDark ? Colors.grey[600] : Colors.grey[400],
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          user?.fullName ?? 'User',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppColors.textMain,
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
+                            image: user?.profilePicture != null
+                                ? DecorationImage(
+                                    image: CachedNetworkImageProvider(
+                                      user!.profilePicture!,
+                                    ),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: user?.profilePicture == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 30,
+                                  color: isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400],
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.fullName ?? 'User',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textMain,
+                                ),
+                              ),
+                              if (user?.email != null)
+                                Text(
+                                  user!.email,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        if (user?.email != null)
-                          Text(
-                            user!.email,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.edit_square,
+                            color: isDark ? Colors.grey[500] : Colors.grey[400],
                           ),
+                          onPressed: () => context.push('/edit-profile'),
+                        ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.edit_square,
-                      color: isDark ? Colors.grey[500] : Colors.grey[400],
+
+                  const SizedBox(height: 16),
+
+                  // Account
+                  _buildSectionHeader('ACCOUNT'),
+                  _buildSettingsContainer(isDark, [
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.person,
+                      title: 'Personal Info',
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.grey,
+                      ),
+                      isDark: isDark,
+                      onTap: () => context.push('/edit-profile'),
                     ),
-                    onPressed: () => context.push('/edit-profile'),
+                    _buildDivider(isDark),
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.lock,
+                      title: 'Change Password',
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.grey,
+                      ),
+                      isDark: isDark,
+                      onTap: () => context.push('/settings/change-password'),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 16),
+
+                  // Preferences
+                  _buildSectionHeader('PREFERENCES'),
+                  _buildSettingsContainer(isDark, [
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.notifications,
+                      title: 'Push Notifications',
+                      trailing: Switch(
+                        value: settingsProvider.pushNotificationsEnabled,
+                        onChanged: settingsProvider.isLoading
+                            ? null
+                            : (value) async {
+                                await settingsProvider.updatePushNotifications(
+                                  value,
+                                );
+                              },
+                        // ignore: deprecated_member_use
+                        activeColor: Colors.white,
+                        activeTrackColor: AppColors.primary,
+                      ),
+                      isDark: isDark,
+                    ),
+                    _buildDivider(isDark),
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.palette,
+                      title: 'Theme',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            themeManager.themeMode == ThemeMode.system
+                                ? 'System'
+                                : (themeManager.themeMode == ThemeMode.dark
+                                      ? 'Dark'
+                                      : 'Light'),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right, color: Colors.grey),
+                        ],
+                      ),
+                      isDark: isDark,
+                      onTap: () => _showThemePicker(context, settingsProvider),
+                    ),
+                    _buildDivider(isDark),
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.shield,
+                      title: 'Privacy & Data',
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.grey,
+                      ),
+                      isDark: isDark,
+                      onTap: () => context.push('/settings/privacy'),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 24),
+
+                  // Logout
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      // Reset settings
+                      settingsProvider.reset();
+                      // Logout user
+                      await authProvider.logout();
+                      if (context.mounted) {
+                        context.go('/');
+                      }
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Log Out'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(
+                        color: Colors.red.withValues(alpha: 0.3),
+                      ),
+                      backgroundColor: isDark
+                          ? AppColors.surfaceDark
+                          : Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
                   ),
+
+                  const SizedBox(height: 16),
+                  Text(
+                    'Version 1.0.0',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Account
-            _buildSectionHeader('ACCOUNT'),
-            _buildSettingsContainer(isDark, [
-              _buildSettingsItem(
-                context,
-                icon: Icons.person,
-                title: 'Personal Info',
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                isDark: isDark,
-                onTap: () => context.push('/edit-profile'),
-              ),
-              _buildDivider(isDark),
-              _buildSettingsItem(
-                context,
-                icon: Icons.lock,
-                title: 'Change Password',
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                isDark: isDark,
-                onTap: () => context.push('/settings/change-password'),
-              ),
-            ]),
-
-            const SizedBox(height: 16),
-
-            // Preferences
-            _buildSectionHeader('PREFERENCES'),
-            _buildSettingsContainer(isDark, [
-              _buildSettingsItem(
-                context,
-                icon: Icons.notifications,
-                title: 'Push Notifications',
-                trailing: Switch(
-                  value: settingsProvider.pushNotificationsEnabled,
-                  onChanged: settingsProvider.isLoading
-                      ? null
-                      : (value) async {
-                          await settingsProvider.updatePushNotifications(value);
-                        },
-                  // ignore: deprecated_member_use
-                  activeColor: Colors.white,
-                  activeTrackColor: AppColors.primary,
-                ),
-                isDark: isDark,
-              ),
-              _buildDivider(isDark),
-              _buildSettingsItem(
-                context,
-                icon: Icons.palette,
-                title: 'Theme',
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      themeManager.themeMode == ThemeMode.system
-                          ? 'System'
-                          : (themeManager.themeMode == ThemeMode.dark
-                                ? 'Dark'
-                                : 'Light'),
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.chevron_right, color: Colors.grey),
-                  ],
-                ),
-                isDark: isDark,
-                onTap: () => _showThemePicker(context, settingsProvider),
-              ),
-              _buildDivider(isDark),
-              _buildSettingsItem(
-                context,
-                icon: Icons.shield,
-                title: 'Privacy & Data',
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                isDark: isDark,
-                onTap: () => context.push('/settings/privacy'),
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Logout
-            OutlinedButton.icon(
-              onPressed: () async {
-                // Reset settings
-                settingsProvider.reset();
-                // Logout user
-                await authProvider.logout();
-                if (context.mounted) {
-                  context.go('/');
-                }
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Log Out'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
-                backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-            Text(
-              'Version 1.0.0',
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
     );
   }
 
@@ -361,6 +390,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (trailing != null) trailing,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(bool isDark, SettingsProvider settingsProvider) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load settings',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please check your connection and try again',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              settingsProvider.clearError();
+              settingsProvider.loadSettings();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

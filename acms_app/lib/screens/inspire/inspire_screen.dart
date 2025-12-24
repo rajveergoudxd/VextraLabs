@@ -63,6 +63,8 @@ class _InspireScreenState extends State<InspireScreen> {
               onRefresh: () => provider.loadFeed(refresh: true),
               child: provider.posts.isEmpty && provider.isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : provider.posts.isEmpty && provider.error != null
+                  ? _buildErrorState(isDark, provider)
                   : provider.posts.isEmpty && !provider.isLoading
                   ? ListView(
                       children: [
@@ -596,6 +598,53 @@ class _InspireScreenState extends State<InspireScreen> {
           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
         ),
       ),
+    );
+  }
+
+  Widget _buildErrorState(bool isDark, InspireProvider provider) {
+    return ListView(
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load feed',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Pull down to refresh or tap retry',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => provider.loadFeed(refresh: true),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
