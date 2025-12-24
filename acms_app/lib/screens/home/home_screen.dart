@@ -522,7 +522,7 @@ class _HomeViewState extends State<HomeView> {
                       child: Image.network(
                         draft.mediaUrls.first,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
+                        errorBuilder: (context, error, stackTrace) => Icon(
                           Icons.image_outlined,
                           color: AppColors.primary,
                           size: 28,

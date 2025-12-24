@@ -25,12 +25,13 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
   }
 
   Future<void> _pickImages() async {
+    // Capture provider before async gap
+    final provider = context.read<CreationProvider>();
+
     // Check permission first
     final hasPermission = await _requestPhotosPermission();
     if (!hasPermission) return;
-
-    // Capture provider before async gap
-    final provider = context.read<CreationProvider>();
+    if (!mounted) return;
 
     try {
       final List<XFile> images = await _picker.pickMultiImage(
@@ -56,12 +57,13 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
   }
 
   Future<void> _takePhoto({bool addToExisting = false}) async {
+    // Capture provider before async gap
+    final provider = context.read<CreationProvider>();
+
     // Check permission first
     final hasPermission = await _requestCameraPermission();
     if (!hasPermission) return;
-
-    // Capture provider before async gap
-    final provider = context.read<CreationProvider>();
+    if (!mounted) return;
 
     try {
       final XFile? photo = await _picker.pickImage(
@@ -206,10 +208,12 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
 
   /// Add more images from gallery to existing selection
   Future<void> _addMoreFromGallery() async {
+    // Capture provider before async gap
+    final provider = context.read<CreationProvider>();
+
     final hasPermission = await _requestPhotosPermission();
     if (!hasPermission) return;
-
-    final provider = context.read<CreationProvider>();
+    if (!mounted) return;
 
     try {
       final List<XFile> images = await _picker.pickMultiImage(
@@ -349,9 +353,12 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      // ignore: use_build_context_synchronously
+      Navigator.of(context).pop(); // Close loading dialog
 
       if (success) {
+        if (!mounted) return;
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Draft saved! Find it in Recent Activity.'),
@@ -360,8 +367,11 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
           ),
         );
         provider.reset();
+        // ignore: use_build_context_synchronously
         context.pop(); // Go back to home
       } else {
+        if (!mounted) return;
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(provider.draftError ?? 'Failed to save draft'),
@@ -372,7 +382,9 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      // ignore: use_build_context_synchronously
+      Navigator.of(context).pop(); // Close loading dialog
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
