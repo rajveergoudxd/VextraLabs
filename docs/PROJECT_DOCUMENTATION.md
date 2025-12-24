@@ -40,7 +40,19 @@
 10. [API Reference](#10-api-reference)
 11. [Testing Strategy](#11-testing-strategy)
 12. [Future Enhancements](#12-future-enhancements)
+    - 12.1 [Planned Features](#planned-features)
+    - 12.2 [Complete AI Workflow](#complete-ai-workflow-future-implementation)
+    - 12.3 [Technical Improvements](#technical-improvements)
+    - 12.4 [Infrastructure & Security Enhancements](#infrastructure--security-enhancements)
+      - [Asynchronous Task Queue Architecture](#asynchronous-task-queue-architecture)
+      - [Refresh Token Rotation](#refresh-token-rotation)
+      - [Platform Size Limits & Constraints](#platform-size-limits--constraints)
+      - [Schema Changes for Platform Connections](#schema-changes-for-platform-connections)
+    - 12.5 [Resilience & Error Handling](#resilience--error-handling)
+      - [Internet Connectivity Loss During Upload](#internet-connectivity-loss-during-upload)
+      - [CMS AI Disconnection & Error Handling](#cms-ai-disconnection--error-handling)
 13. [Conclusion](#13-conclusion)
+
 
 ---
 
@@ -2188,6 +2200,1316 @@ CREATE TABLE ai_preferences (
 3. **Rate Limiting**: API throttling per user/endpoint
 4. **Monitoring**: Add observability with Cloud Monitoring/Logging
 5. **Background Jobs**: Celery for async task processing
+
+---
+
+## Infrastructure & Security Enhancements
+
+### Asynchronous Task Queue Architecture
+
+For handling long-running operations like multi-platform publishing, media processing, and AI content generation, an asynchronous task queue system will be implemented:
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        APP[Mobile App]
+    end
+    
+    subgraph "API Layer"
+        API[FastAPI Server]
+    end
+    
+    subgraph "Task Queue Layer"
+        REDIS[(Redis<br/>Message Broker)]
+        CW1[Celery Worker 1<br/>Publishing]
+        CW2[Celery Worker 2<br/>Media Processing]
+        CW3[Celery Worker 3<br/>AI Generation]
+        FLOWER[Flower<br/>Task Monitoring]
+    end
+    
+    subgraph "Storage"
+        DB[(PostgreSQL)]
+        GCS[Cloud Storage]
+    end
+    
+    APP -->|HTTP Request| API
+    API -->|Enqueue Task| REDIS
+    REDIS --> CW1
+    REDIS --> CW2
+    REDIS --> CW3
+    CW1 --> DB
+    CW2 --> GCS
+    CW3 --> DB
+    FLOWER -.->|Monitor| REDIS
+    API -->|WebSocket/FCM| APP
+```
+
+#### Task Categories
+
+| Queue | Priority | Tasks | Retry Policy |
+|-------|----------|-------|--------------|
+| `high_priority` | Immediate | User-initiated publishing, token refresh | 3 retries, exponential backoff |
+| `default` | Normal | Analytics processing, notifications | 5 retries |
+| `low_priority` | Batch | Cleanup jobs, scheduled reports | 10 retries |
+| `media` | Normal | Image processing, video transcoding | 3 retries |
+| `ai` | Low | Content generation, analysis | 2 retries, fallback to manual |
+
+#### Task Implementation
+
+```python
+# tasks/publishing.py
+from celery import shared_task, Task
+from celery.exceptions import MaxRetriesExceededError
+
+class PublishingTask(Task):
+    """Base task with retry and error handling"""
+    autoretry_for = (ConnectionError, TimeoutError)
+    retry_backoff = True
+    retry_backoff_max = 600  # 10 minutes max
+    retry_jitter = True
+    max_retries = 3
+
+@shared_task(bind=True, base=PublishingTask, queue='high_priority')
+def publish_to_platform(
+    self,
+    task_id: str,
+    user_id: int,
+    platform: str,
+    content: dict,
+    media_urls: list
+) -> dict:
+    """
+    Publish content to a social platform asynchronously.
+    
+    Steps:
+    1. Load user's OAuth connection
+    2. Validate/refresh token if needed
+    3. Publish to platform API
+    4. Update post status in database
+    5. Send notification to user
+    """
+    try:
+        # Task implementation
+        connection = get_user_connection(user_id, platform)
+        
+        if connection.is_token_expired():
+            refresh_token_task.delay(user_id, platform)
+            raise TokenExpiredError()
+        
+        result = platform_service.publish(
+            access_token=decrypt_token(connection.access_token),
+            content=content,
+            media_urls=media_urls
+        )
+        
+        update_post_status(task_id, 'published', result)
+        send_notification(user_id, 'Post published successfully!')
+        
+        return {'status': 'success', 'platform_post_id': result.id}
+        
+    except RateLimitError as e:
+        # Retry after rate limit resets
+        raise self.retry(countdown=e.retry_after)
+    except PermanentError as e:
+        # Don't retry permanent failures
+        update_post_status(task_id, 'failed', error=str(e))
+        send_notification(user_id, f'Publishing failed: {str(e)}')
+        raise
+
+@shared_task(queue='default')
+def cleanup_expired_tasks():
+    """Periodic task to clean up old/stuck tasks"""
+    pass
+```
+
+#### Task Status Tracking
+
+```python
+# models/task_status.py
+class TaskStatus(Base):
+    __tablename__ = 'task_statuses'
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    task_type = Column(String(50), nullable=False)  # 'publish', 'ai_generate', 'media_process'
+    status = Column(String(20), nullable=False)  # 'pending', 'processing', 'completed', 'failed', 'retrying'
+    progress = Column(Integer, default=0)  # 0-100
+    result = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    completed_at = Column(DateTime, nullable=True)
+```
+
+---
+
+### Refresh Token Rotation
+
+To enhance security, a refresh token rotation mechanism will be implemented following OAuth 2.0 best practices:
+
+```mermaid
+sequenceDiagram
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant Platform as Social Platform
+
+    Note over App,Platform: Token Refresh with Rotation
+    
+    App->>API: Request with expired access_token
+    API->>API: Detect token expired
+    API-->>App: 401 Token Expired
+    
+    App->>API: POST /auth/refresh (refresh_token)
+    API->>DB: Validate refresh_token
+    
+    alt Token Valid
+        API->>API: Generate new access_token
+        API->>API: Generate new refresh_token
+        API->>DB: Invalidate old refresh_token
+        API->>DB: Store new refresh_token (hashed)
+        API-->>App: {access_token, refresh_token}
+        App->>App: Store new tokens securely
+    else Token Invalid/Reused
+        API->>DB: Revoke all user tokens (security breach)
+        API-->>App: 401 Token Revoked, Re-login Required
+        App->>App: Clear session, navigate to login
+    end
+    
+    Note over App,Platform: Social Platform Token Refresh
+    
+    API->>DB: Check platform token expiry
+    
+    alt Platform Token Expiring Soon
+        API->>Platform: POST /oauth/token (refresh_token)
+        Platform-->>API: New tokens
+        API->>API: Encrypt new tokens
+        API->>DB: Update social_connection
+    end
+```
+
+#### Token Rotation Implementation
+
+```python
+# core/token_rotation.py
+class RefreshTokenManager:
+    """Handles secure refresh token rotation"""
+    
+    TOKEN_FAMILY_EXPIRY = timedelta(days=30)
+    REUSE_DETECTION_WINDOW = timedelta(seconds=30)
+    
+    async def rotate_refresh_token(
+        self,
+        db: Session,
+        old_refresh_token: str
+    ) -> Tuple[str, str]:
+        """
+        Rotate refresh token with reuse detection.
+        
+        Security features:
+        1. Each refresh token can only be used once
+        2. If a token is reused, entire token family is revoked
+        3. Tokens are stored hashed, only once for verification
+        """
+        # Verify and find token
+        token_record = db.query(RefreshToken).filter(
+            RefreshToken.token_hash == hash_token(old_refresh_token),
+            RefreshToken.revoked_at.is_(None)
+        ).first()
+        
+        if not token_record:
+            # Token not found or already used - potential breach
+            await self._handle_reuse_detection(db, old_refresh_token)
+            raise TokenReuseDetectedError()
+        
+        if token_record.expires_at < datetime.utcnow():
+            raise TokenExpiredError()
+        
+        # Generate new token pair
+        new_access_token = create_access_token(user_id=token_record.user_id)
+        new_refresh_token = secrets.token_urlsafe(32)
+        
+        # Revoke old token
+        token_record.revoked_at = datetime.utcnow()
+        
+        # Create new token record (same family)
+        new_token_record = RefreshToken(
+            user_id=token_record.user_id,
+            token_hash=hash_token(new_refresh_token),
+            family_id=token_record.family_id,
+            expires_at=datetime.utcnow() + self.TOKEN_FAMILY_EXPIRY,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_token_record)
+        db.commit()
+        
+        return new_access_token, new_refresh_token
+    
+    async def _handle_reuse_detection(self, db: Session, token: str):
+        """Revoke entire token family when reuse detected"""
+        # This could be an attack - revoke all tokens for this family
+        # and optionally notify user of suspicious activity
+        pass
+```
+
+#### Refresh Token Database Schema
+
+```sql
+CREATE TABLE refresh_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL,  -- SHA-256 hash
+    family_id UUID NOT NULL,          -- Groups related tokens
+    device_info JSON,                  -- Device fingerprint
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP,
+    revoked_reason VARCHAR(50)        -- 'rotation', 'logout', 'security'
+);
+
+CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+```
+
+---
+
+### Platform Size Limits & Constraints
+
+Each social media platform has specific constraints for posts. The system will enforce and adapt to these limits:
+
+#### Platform Content Limits
+
+| Platform | Text Limit | Image Size | Video Size | Video Duration | Images/Post |
+|----------|------------|------------|------------|----------------|-------------|
+| **Instagram** | 2,200 chars | 30MB | 650MB | 60s (Feed), 90s (Reels) | 10 |
+| **Twitter/X** | 280 chars (Free), 10K (Premium) | 5MB | 512MB | 2:20 min | 4 |
+| **LinkedIn** | 3,000 chars | 10MB | 200MB | 10 min | 9 |
+| **Facebook** | 63,206 chars | 4MB | 10GB | 240 min | 10 |
+
+#### Size Limit Configuration
+
+```python
+# config/platform_limits.py
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class MediaLimit:
+    max_size_mb: float
+    allowed_formats: List[str]
+    max_dimension: int
+    aspect_ratios: List[str]
+
+@dataclass
+class PlatformLimits:
+    text_max_length: int
+    text_min_length: int = 0
+    hashtag_max_count: int = 30
+    image: MediaLimit = None
+    video: MediaLimit = None
+    images_per_post: int = 1
+    video_max_duration_seconds: int = 0
+    requires_media: bool = False
+    supports_carousel: bool = False
+    supports_stories: bool = False
+
+PLATFORM_LIMITS = {
+    'instagram': PlatformLimits(
+        text_max_length=2200,
+        hashtag_max_count=30,
+        image=MediaLimit(
+            max_size_mb=30,
+            allowed_formats=['jpg', 'jpeg', 'png'],
+            max_dimension=1440,
+            aspect_ratios=['1:1', '4:5', '1.91:1']
+        ),
+        video=MediaLimit(
+            max_size_mb=650,
+            allowed_formats=['mp4', 'mov'],
+            max_dimension=1920,
+            aspect_ratios=['9:16', '4:5', '1:1']
+        ),
+        images_per_post=10,
+        video_max_duration_seconds=60,
+        requires_media=True,
+        supports_carousel=True,
+        supports_stories=True
+    ),
+    'twitter': PlatformLimits(
+        text_max_length=280,
+        hashtag_max_count=10,
+        image=MediaLimit(
+            max_size_mb=5,
+            allowed_formats=['jpg', 'jpeg', 'png', 'gif', 'webp'],
+            max_dimension=4096,
+            aspect_ratios=['16:9', '1:1']
+        ),
+        video=MediaLimit(
+            max_size_mb=512,
+            allowed_formats=['mp4'],
+            max_dimension=1920,
+            aspect_ratios=['16:9', '1:1']
+        ),
+        images_per_post=4,
+        video_max_duration_seconds=140,
+        supports_carousel=False
+    ),
+    'linkedin': PlatformLimits(
+        text_max_length=3000,
+        hashtag_max_count=5,
+        image=MediaLimit(
+            max_size_mb=10,
+            allowed_formats=['jpg', 'jpeg', 'png'],
+            max_dimension=7680,
+            aspect_ratios=['1.91:1', '1:1', '4:5']
+        ),
+        video=MediaLimit(
+            max_size_mb=200,
+            allowed_formats=['mp4', 'mov', 'avi'],
+            max_dimension=4096,
+            aspect_ratios=['16:9', '1:1', '9:16']
+        ),
+        images_per_post=9,
+        video_max_duration_seconds=600,
+        supports_carousel=True
+    ),
+    'facebook': PlatformLimits(
+        text_max_length=63206,
+        hashtag_max_count=30,
+        image=MediaLimit(
+            max_size_mb=4,
+            allowed_formats=['jpg', 'jpeg', 'png', 'gif'],
+            max_dimension=2048,
+            aspect_ratios=['1.91:1', '1:1', '4:5', '9:16']
+        ),
+        video=MediaLimit(
+            max_size_mb=10240,  # 10GB
+            allowed_formats=['mp4', 'mov'],
+            max_dimension=4096,
+            aspect_ratios=['16:9', '9:16', '1:1']
+        ),
+        images_per_post=10,
+        video_max_duration_seconds=14400,  # 240 minutes
+        supports_carousel=True,
+        supports_stories=True
+    )
+}
+```
+
+#### Content Validation Service
+
+```python
+# services/content_validator.py
+class ContentValidator:
+    """Validates content against platform constraints"""
+    
+    async def validate_for_platforms(
+        self,
+        content: str,
+        media_files: List[MediaFile],
+        target_platforms: List[str]
+    ) -> ValidationResult:
+        """
+        Validate content for each platform.
+        Returns per-platform validation results.
+        """
+        results = {}
+        
+        for platform in target_platforms:
+            limits = PLATFORM_LIMITS.get(platform)
+            if not limits:
+                results[platform] = ValidationError(f'Unknown platform: {platform}')
+                continue
+            
+            errors = []
+            warnings = []
+            
+            # Text validation
+            if len(content) > limits.text_max_length:
+                errors.append(
+                    f'Text exceeds {platform} limit: '
+                    f'{len(content)}/{limits.text_max_length} chars'
+                )
+            
+            # Hashtag count
+            hashtag_count = content.count('#')
+            if hashtag_count > limits.hashtag_max_count:
+                warnings.append(
+                    f'Too many hashtags for {platform}: '
+                    f'{hashtag_count}/{limits.hashtag_max_count}'
+                )
+            
+            # Media validation
+            for media in media_files:
+                media_errors = await self._validate_media(media, limits, platform)
+                errors.extend(media_errors)
+            
+            # Media count
+            if len(media_files) > limits.images_per_post:
+                errors.append(
+                    f'Too many media files for {platform}: '
+                    f'{len(media_files)}/{limits.images_per_post}'
+                )
+            
+            results[platform] = ValidationResult(
+                valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings,
+                suggestions=self._generate_suggestions(content, limits)
+            )
+        
+        return results
+    
+    def _generate_suggestions(self, content: str, limits: PlatformLimits) -> List[str]:
+        """Generate suggestions to optimize content for platform"""
+        suggestions = []
+        
+        if len(content) > limits.text_max_length * 0.9:
+            suggestions.append(
+                f'Consider shortening text (currently {len(content)} chars, '
+                f'limit is {limits.text_max_length})'
+            )
+        
+        return suggestions
+```
+
+---
+
+### Schema Changes for Platform Connections
+
+When platforms are fully connected, the following schema enhancements will be implemented:
+
+#### Enhanced Post Model
+
+```python
+# models/post.py - Future Schema
+class Post(Base):
+    __tablename__ = 'posts'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    # Content
+    content = Column(Text, nullable=True)
+    media_urls = Column(JSON, default=list)  # List of GCS URLs
+    
+    # Publishing Status
+    status = Column(String(20), default='draft')  # draft, scheduled, publishing, published, failed
+    
+    # Platform-Specific Publishing Results
+    platform_posts = Column(JSON, default=dict)
+    """
+    Structure:
+    {
+        "instagram": {
+            "status": "published",
+            "platform_post_id": "17890...",
+            "platform_permalink": "https://instagram.com/p/...",
+            "published_at": "2025-12-24T10:00:00Z",
+            "metrics": {"likes": 0, "comments": 0}  # Updated by analytics sync
+        },
+        "twitter": {
+            "status": "published",
+            "platform_post_id": "167890...",
+            "platform_permalink": "https://twitter.com/user/status/...",
+            "published_at": "2025-12-24T10:00:01Z"
+        },
+        "linkedin": {
+            "status": "failed",
+            "error": "Rate limit exceeded",
+            "retry_at": "2025-12-24T11:00:00Z"
+        }
+    }
+    """
+    
+    # Scheduling
+    scheduled_at = Column(DateTime, nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    
+    # Platform Targeting
+    target_platforms = Column(JSON, default=list)  # ['instagram', 'twitter']
+    
+    # Inspire Section (Internal)
+    is_inspire_post = Column(Boolean, default=False)
+    inspire_visibility = Column(String(20), default='public')  # public, followers, private
+    
+    # Engagement Metrics (for Inspire)
+    likes_count = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    shares_count = Column(Integer, default=0)
+    
+    # Content Metadata
+    content_type = Column(String(20), default='post')  # post, story, reel, thread
+    hashtags = Column(JSON, default=list)
+    mentions = Column(JSON, default=list)
+    location = Column(String(255), nullable=True)
+    
+    # AI Generation Metadata
+    is_ai_generated = Column(Boolean, default=False)
+    ai_prompt = Column(Text, nullable=True)
+    ai_model = Column(String(50), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship('User', back_populates='posts')
+    comments = relationship('Comment', back_populates='post', cascade='all, delete-orphan')
+    likes = relationship('Like', back_populates='post', cascade='all, delete-orphan')
+```
+
+#### Enhanced Social Connections Model
+
+```python
+# models/social_connection.py - Future Schema
+class SocialConnection(Base):
+    __tablename__ = 'social_connections'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    platform = Column(String(50), nullable=False)  # instagram, twitter, linkedin, facebook
+    
+    # Platform Account Info
+    platform_user_id = Column(String(255), nullable=False)
+    platform_username = Column(String(255), nullable=True)
+    platform_display_name = Column(String(255), nullable=True)
+    platform_profile_picture = Column(Text, nullable=True)
+    
+    # OAuth Tokens (Encrypted at rest)
+    access_token = Column(Text, nullable=False)  # AES-256 encrypted
+    refresh_token = Column(Text, nullable=True)  # AES-256 encrypted
+    token_expires_at = Column(DateTime, nullable=True)
+    
+    # Token Metadata
+    scopes = Column(Text, nullable=True)  # Comma-separated scopes granted
+    token_type = Column(String(50), default='Bearer')
+    
+    # Connection Status
+    status = Column(String(20), default='active')  # active, expired, revoked, error
+    last_error = Column(Text, nullable=True)
+    error_count = Column(Integer, default=0)
+    last_successful_action = Column(DateTime, nullable=True)
+    
+    # Platform-Specific Settings
+    platform_settings = Column(JSON, default=dict)
+    """
+    Structure varies by platform:
+    Instagram: {
+        "account_type": "business",  # creator, business, personal
+        "instagram_business_account_id": "17890...",
+        "facebook_page_id": "12345...",  # For Instagram Business
+        "posting_enabled": true,
+        "stories_enabled": true,
+        "reels_enabled": false
+    }
+    Twitter: {
+        "tier": "free",  # free, basic, pro, enterprise
+        "rate_limits": {"tweets_per_day": 50, "media_per_tweet": 4},
+        "dm_enabled": true
+    }
+    LinkedIn: {
+        "organization_id": null,  # For company pages
+        "posting_as": "member",  # member, organization
+        "article_enabled": true
+    }
+    """
+    
+    # Rate Limiting
+    rate_limit_remaining = Column(Integer, nullable=True)
+    rate_limit_reset_at = Column(DateTime, nullable=True)
+    
+    # Usage Analytics
+    posts_published = Column(Integer, default=0)
+    last_post_at = Column(DateTime, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Unique constraint: one connection per platform per user
+    __table_args__ = (
+        UniqueConstraint('user_id', 'platform', name='uq_user_platform'),
+    )
+    
+    user = relationship('User', back_populates='social_connections')
+```
+
+#### Migration Script for Schema Changes
+
+```python
+# alembic/versions/xxxx_add_platform_fields.py
+"""Add platform-specific fields to posts and social_connections
+
+Revision ID: xxxx
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+def upgrade():
+    # Posts table enhancements
+    op.add_column('posts', sa.Column('platform_posts', postgresql.JSON(), default={}))
+    op.add_column('posts', sa.Column('status', sa.String(20), default='draft'))
+    op.add_column('posts', sa.Column('scheduled_at', sa.DateTime(), nullable=True))
+    op.add_column('posts', sa.Column('target_platforms', postgresql.JSON(), default=[]))
+    op.add_column('posts', sa.Column('content_type', sa.String(20), default='post'))
+    op.add_column('posts', sa.Column('is_ai_generated', sa.Boolean(), default=False))
+    op.add_column('posts', sa.Column('hashtags', postgresql.JSON(), default=[]))
+    op.add_column('posts', sa.Column('shares_count', sa.Integer(), default=0))
+    
+    # Social connections enhancements
+    op.add_column('social_connections', sa.Column('status', sa.String(20), default='active'))
+    op.add_column('social_connections', sa.Column('last_error', sa.Text(), nullable=True))
+    op.add_column('social_connections', sa.Column('error_count', sa.Integer(), default=0))
+    op.add_column('social_connections', sa.Column('platform_settings', postgresql.JSON(), default={}))
+    op.add_column('social_connections', sa.Column('rate_limit_remaining', sa.Integer(), nullable=True))
+    op.add_column('social_connections', sa.Column('rate_limit_reset_at', sa.DateTime(), nullable=True))
+    op.add_column('social_connections', sa.Column('posts_published', sa.Integer(), default=0))
+    op.add_column('social_connections', sa.Column('last_post_at', sa.DateTime(), nullable=True))
+    op.add_column('social_connections', sa.Column('last_successful_action', sa.DateTime(), nullable=True))
+
+def downgrade():
+    # Remove added columns
+    op.drop_column('posts', 'platform_posts')
+    op.drop_column('posts', 'status')
+    # ... etc
+```
+
+---
+
+## Resilience & Error Handling
+
+### Internet Connectivity Loss During Upload
+
+When uploading media or publishing content, internet connectivity issues must be handled gracefully:
+
+```mermaid
+stateDiagram-v2
+    [*] --> CheckConnectivity: Start Upload
+    
+    CheckConnectivity --> UploadMedia: Online
+    CheckConnectivity --> QueueOffline: Offline
+    
+    UploadMedia --> UploadProgress: Begin Upload
+    UploadProgress --> CheckConnectivity: Connection Lost
+    UploadProgress --> UploadComplete: Success
+    UploadProgress --> RetryUpload: Timeout/Error
+    
+    RetryUpload --> UploadProgress: Retry #1-3
+    RetryUpload --> SaveLocal: Max Retries
+    
+    QueueOffline --> SaveLocal: Cache Locally
+    SaveLocal --> WaitForNetwork: Monitor Connectivity
+    WaitForNetwork --> ResumeUpload: Network Restored
+    WaitForNetwork --> NotifyUser: Still Offline After Timeout
+    
+    ResumeUpload --> UploadProgress: Resume from Checkpoint
+    UploadComplete --> [*]: Success
+    NotifyUser --> [*]: User Acknowledgment
+```
+
+#### Offline-First Upload Strategy
+
+```dart
+// services/resilient_upload_service.dart
+class ResilientUploadService {
+  final _connectivity = Connectivity();
+  final _localStorage = LocalUploadQueue();
+  final _uploadApi = UploadService();
+  
+  /// Upload media with automatic retry and offline queueing
+  Future<UploadResult> uploadWithResilience({
+    required String filePath,
+    required String postDraftId,
+    int maxRetries = 3,
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    // Check current connectivity
+    final connectivityResult = await _connectivity.checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      return _queueForLater(filePath, postDraftId);
+    }
+    
+    int attempt = 0;
+    UploadProgress? lastProgress;
+    
+    while (attempt < maxRetries) {
+      try {
+        // Start or resume upload
+        final result = await _uploadApi.uploadFile(
+          filePath: filePath,
+          resumeFrom: lastProgress?.bytesUploaded,
+          onProgress: (progress) {
+            lastProgress = progress;
+            _notifyProgress(postDraftId, progress);
+          },
+        ).timeout(timeout);
+        
+        // Success!
+        return UploadResult.success(url: result.url);
+        
+      } on SocketException catch (e) {
+        // Network issue - queue for later
+        return _queueForLater(filePath, postDraftId, resumeFrom: lastProgress);
+        
+      } on TimeoutException catch (e) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          return _queueForLater(filePath, postDraftId, resumeFrom: lastProgress);
+        }
+        // Wait before retry with exponential backoff
+        await Future.delayed(Duration(seconds: pow(2, attempt).toInt()));
+        
+      } on UploadException catch (e) {
+        if (e.isRetryable) {
+          attempt++;
+          continue;
+        }
+        return UploadResult.failed(error: e.message);
+      }
+    }
+    
+    return UploadResult.failed(error: 'Max retries exceeded');
+  }
+  
+  /// Queue upload for when network is available
+  UploadResult _queueForLater(
+    String filePath,
+    String postDraftId, {
+    UploadProgress? resumeFrom,
+  }) {
+    _localStorage.addToQueue(UploadQueueItem(
+      filePath: filePath,
+      postDraftId: postDraftId,
+      resumeFromByte: resumeFrom?.bytesUploaded ?? 0,
+      queuedAt: DateTime.now(),
+    ));
+    
+    // Start monitoring for network restoration
+    _startNetworkMonitor();
+    
+    return UploadResult.queued(
+      message: 'Upload queued. Will resume when online.',
+    );
+  }
+  
+  /// Monitor connectivity and resume queued uploads
+  void _startNetworkMonitor() {
+    _connectivity.onConnectivityChanged.listen((result) async {
+      if (result != ConnectivityResult.none) {
+        await _processQueue();
+      }
+    });
+  }
+  
+  /// Process all queued uploads
+  Future<void> _processQueue() async {
+    final queue = await _localStorage.getQueue();
+    
+    for (final item in queue) {
+      final result = await uploadWithResilience(
+        filePath: item.filePath,
+        postDraftId: item.postDraftId,
+      );
+      
+      if (result.isSuccess) {
+        await _localStorage.removeFromQueue(item.id);
+        // Notify user of successful background upload
+        _showNotification('Upload completed for your draft');
+      }
+    }
+  }
+}
+```
+
+#### Local Upload Queue Schema (SQLite)
+
+```dart
+// models/upload_queue.dart
+class UploadQueueItem {
+  final String id;
+  final String filePath;
+  final String postDraftId;
+  final int resumeFromByte;
+  final DateTime queuedAt;
+  final int retryCount;
+  final String? lastError;
+  final UploadQueueStatus status;  // pending, uploading, completed, failed
+}
+
+// Database table (drift/sqflite)
+// CREATE TABLE upload_queue (
+//   id TEXT PRIMARY KEY,
+//   file_path TEXT NOT NULL,
+//   post_draft_id TEXT NOT NULL,
+//   resume_from_byte INTEGER DEFAULT 0,
+//   queued_at INTEGER NOT NULL,
+//   retry_count INTEGER DEFAULT 0,
+//   last_error TEXT,
+//   status TEXT DEFAULT 'pending'
+// );
+```
+
+#### Platform Publishing Failure Recovery
+
+```dart
+// providers/publish_provider.dart
+class PublishProvider extends ChangeNotifier {
+  final _publishService = PublishService();
+  final _offlineQueue = OfflinePublishQueue();
+  
+  Map<String, PublishStatus> _platformStatuses = {};
+  
+  /// Publish to multiple platforms with individual failure handling
+  Future<MultiPlatformResult> publishToAll({
+    required Post post,
+    required List<String> platforms,
+  }) async {
+    _platformStatuses = {
+      for (var p in platforms) p: PublishStatus.inProgress()
+    };
+    notifyListeners();
+    
+    final results = <String, PublishResult>{};
+    
+    // Publish to each platform concurrently
+    await Future.wait(platforms.map((platform) async {
+      try {
+        final result = await _publishService.publishToPlatform(
+          post: post,
+          platform: platform,
+        );
+        
+        results[platform] = result;
+        _platformStatuses[platform] = PublishStatus.success(
+          platformPostId: result.platformPostId,
+          permalink: result.permalink,
+        );
+        
+      } on NetworkException {
+        results[platform] = PublishResult.queued();
+        _platformStatuses[platform] = PublishStatus.queued(
+          message: 'Will publish when online',
+        );
+        await _offlineQueue.add(post, platform);
+        
+      } on PlatformException catch (e) {
+        results[platform] = PublishResult.failed(error: e.message);
+        _platformStatuses[platform] = PublishStatus.failed(
+          error: e.message,
+          isRetryable: e.isRetryable,
+        );
+      }
+      
+      notifyListeners();
+    }));
+    
+    return MultiPlatformResult(
+      overallSuccess: results.values.any((r) => r.isSuccess),
+      platformResults: results,
+    );
+  }
+  
+  /// Retry failed platform publishing
+  Future<void> retryPlatform(String postId, String platform) async {
+    // Implementation
+  }
+}
+```
+
+---
+
+### CMS AI Disconnection & Error Handling
+
+When the AI service (LLM/Image generation) becomes unavailable or returns errors:
+
+```mermaid
+flowchart TB
+    subgraph "Error Detection"
+        REQ[AI Request] --> CHECK{Service Available?}
+        CHECK -->|Yes| PROCESS[Process Request]
+        CHECK -->|No| FALLBACK[Fallback Mode]
+    end
+    
+    subgraph "Error Types"
+        PROCESS --> TIMEOUT{Request Timeout?}
+        PROCESS --> RATELIMIT{Rate Limited?}
+        PROCESS --> ERROR{API Error?}
+        PROCESS --> SUCCESS[Success]
+    end
+    
+    subgraph "Recovery Actions"
+        TIMEOUT -->|Yes| RETRY[Retry with Backoff]
+        RATELIMIT -->|Yes| QUEUE[Queue & Wait]
+        ERROR -->|Transient| RETRY
+        ERROR -->|Permanent| FALLBACK
+        
+        RETRY -->|Max Retries| FALLBACK
+        QUEUE --> RETRY
+    end
+    
+    subgraph "Fallback Strategies"
+        FALLBACK --> CACHE[Cached Response]
+        FALLBACK --> ALT[Alternative Provider]
+        FALLBACK --> MANUAL[Manual Mode Prompt]
+        FALLBACK --> NOTIFY[Notify User]
+    end
+    
+    SUCCESS --> USER[Return to User]
+    CACHE --> USER
+    ALT --> USER
+    MANUAL --> USER
+```
+
+#### AI Service Error Handling
+
+```python
+# services/ai_service.py
+from enum import Enum
+from typing import Optional
+import asyncio
+
+class AIErrorType(Enum):
+    TIMEOUT = "timeout"
+    RATE_LIMITED = "rate_limited"
+    SERVICE_UNAVAILABLE = "service_unavailable"
+    CONTENT_FILTERED = "content_filtered"
+    QUOTA_EXCEEDED = "quota_exceeded"
+    INVALID_REQUEST = "invalid_request"
+    UNKNOWN = "unknown"
+
+class AIServiceError(Exception):
+    def __init__(
+        self,
+        error_type: AIErrorType,
+        message: str,
+        retry_after: Optional[int] = None,
+        is_retryable: bool = True
+    ):
+        self.error_type = error_type
+        self.message = message
+        self.retry_after = retry_after
+        self.is_retryable = is_retryable
+        super().__init__(message)
+
+class ResilientAIService:
+    """AI service with comprehensive error handling and fallbacks"""
+    
+    def __init__(self):
+        self.primary_provider = OpenAIProvider()
+        self.fallback_provider = GeminiProvider()
+        self.local_cache = AIResponseCache()
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=5,
+            recovery_timeout=60
+        )
+    
+    async def generate_content(
+        self,
+        prompt: str,
+        options: GenerationOptions,
+        max_retries: int = 3
+    ) -> AIGenerationResult:
+        """
+        Generate content with automatic retry, fallback, and circuit breaking.
+        """
+        # Check circuit breaker
+        if self.circuit_breaker.is_open:
+            return await self._use_fallback(prompt, options)
+        
+        attempt = 0
+        last_error = None
+        
+        while attempt < max_retries:
+            try:
+                # Try primary provider
+                result = await asyncio.wait_for(
+                    self.primary_provider.generate(prompt, options),
+                    timeout=30.0
+                )
+                
+                self.circuit_breaker.record_success()
+                
+                # Cache successful response
+                await self.local_cache.store(prompt, options, result)
+                
+                return result
+                
+            except asyncio.TimeoutError:
+                last_error = AIServiceError(
+                    AIErrorType.TIMEOUT,
+                    "AI service request timed out",
+                    is_retryable=True
+                )
+                attempt += 1
+                self.circuit_breaker.record_failure()
+                
+            except RateLimitError as e:
+                last_error = AIServiceError(
+                    AIErrorType.RATE_LIMITED,
+                    f"Rate limited: {e.message}",
+                    retry_after=e.retry_after,
+                    is_retryable=True
+                )
+                
+                if e.retry_after and e.retry_after < 60:
+                    await asyncio.sleep(e.retry_after)
+                    attempt += 1
+                else:
+                    break  # Use fallback for long rate limits
+                
+            except ContentFilterError as e:
+                # Don't retry - content itself is the issue
+                return AIGenerationResult.filtered(
+                    message="Content was filtered. Please modify your prompt.",
+                    suggestion=e.suggestion
+                )
+                
+            except QuotaExceededError:
+                # User/global quota exceeded - can't retry
+                return AIGenerationResult.quota_exceeded(
+                    message="AI generation quota exceeded. Please try again later."
+                )
+                
+            except ServiceUnavailableError:
+                self.circuit_breaker.record_failure()
+                break  # Immediately try fallback
+                
+            except Exception as e:
+                last_error = AIServiceError(
+                    AIErrorType.UNKNOWN,
+                    str(e),
+                    is_retryable=False
+                )
+                break
+            
+            # Exponential backoff between retries
+            await asyncio.sleep(2 ** attempt)
+        
+        # All retries failed or non-retryable error
+        return await self._use_fallback(prompt, options, last_error)
+    
+    async def _use_fallback(
+        self,
+        prompt: str,
+        options: GenerationOptions,
+        error: Optional[AIServiceError] = None
+    ) -> AIGenerationResult:
+        """Use fallback strategies when primary provider fails"""
+        
+        # Strategy 1: Try cached response
+        cached = await self.local_cache.get_similar(prompt, options)
+        if cached:
+            return AIGenerationResult.from_cache(
+                cached,
+                message="Generated from cached template (AI temporarily unavailable)"
+            )
+        
+        # Strategy 2: Try alternative provider
+        try:
+            result = await self.fallback_provider.generate(prompt, options)
+            return AIGenerationResult.from_fallback(
+                result,
+                provider="gemini"
+            )
+        except Exception:
+            pass
+        
+        # Strategy 3: Return template-based response
+        template = self._get_template_response(options.content_type)
+        if template:
+            return AIGenerationResult.template(
+                template,
+                message="AI is temporarily unavailable. Here's a template to get started."
+            )
+        
+        # Strategy 4: Suggest manual creation
+        return AIGenerationResult.unavailable(
+            message="AI content generation is temporarily unavailable.",
+            suggestion="Please try again later or create content manually.",
+            error_details=str(error) if error else None
+        )
+    
+    def _get_template_response(self, content_type: str) -> Optional[str]:
+        """Get pre-built template for content type"""
+        templates = {
+            "promotional": "🔥 Exciting news! [Your announcement here]\n\n✨ Key features:\n• Feature 1\n• Feature 2\n• Feature 3\n\n👉 [Call to action]\n\n#YourBrand #Launch",
+            "educational": "📚 Did you know?\n\n[Your insight here]\n\n💡 Key takeaway:\n[Main point]\n\n🤔 What do you think? Comment below!\n\n#Learning #Tips",
+            "engagement": "🎉 Time for some fun!\n\n[Your question or prompt]\n\nDrop your answer in the comments! 👇\n\n#Community #Engagement"
+        }
+        return templates.get(content_type)
+```
+
+#### Frontend AI Error UI
+
+```dart
+// widgets/ai_error_handler.dart
+class AIErrorDisplay extends StatelessWidget {
+  final AIError error;
+  final VoidCallback? onRetry;
+  final VoidCallback? onManualMode;
+  
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          _getErrorIcon(),
+          size: 48,
+          color: _getErrorColor(),
+        ),
+        SizedBox(height: 16),
+        Text(
+          _getErrorTitle(),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          error.message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+        SizedBox(height: 24),
+        _buildActionButtons(),
+      ],
+    );
+  }
+  
+  Widget _buildActionButtons() {
+    switch (error.type) {
+      case AIErrorType.timeout:
+      case AIErrorType.serviceUnavailable:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: Icon(Icons.refresh),
+              label: Text('Try Again'),
+            ),
+            SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: onManualMode,
+              icon: Icon(Icons.edit),
+              label: Text('Create Manually'),
+            ),
+          ],
+        );
+        
+      case AIErrorType.rateLimited:
+        return Column(
+          children: [
+            Text(
+              'Please wait ${error.retryAfter} seconds',
+              style: TextStyle(color: Colors.orange),
+            ),
+            SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onManualMode,
+              icon: Icon(Icons.edit),
+              label: Text('Create Manually Instead'),
+            ),
+          ],
+        );
+        
+      case AIErrorType.quotaExceeded:
+        return OutlinedButton.icon(
+          onPressed: onManualMode,
+          icon: Icon(Icons.edit),
+          label: Text('Create Manually'),
+        );
+        
+      default:
+        return OutlinedButton.icon(
+          onPressed: onManualMode,
+          icon: Icon(Icons.edit),
+          label: Text('Create Manually'),
+        );
+    }
+  }
+}
+```
+
+#### Circuit Breaker Pattern
+
+```python
+# core/circuit_breaker.py
+import time
+from enum import Enum
+from threading import Lock
+
+class CircuitState(Enum):
+    CLOSED = "closed"      # Normal operation
+    OPEN = "open"          # Failing, reject requests
+    HALF_OPEN = "half_open"  # Testing recovery
+
+class CircuitBreaker:
+    """
+    Circuit breaker pattern to prevent cascading failures.
+    
+    - CLOSED: Requests flow normally, failures are counted
+    - OPEN: Requests immediately fail without calling service
+    - HALF_OPEN: Limited requests allowed to test recovery
+    """
+    
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: int = 60,
+        half_open_requests: int = 3
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_requests = half_open_requests
+        
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time = None
+        self._half_open_successes = 0
+        self._lock = Lock()
+    
+    @property
+    def is_open(self) -> bool:
+        with self._lock:
+            if self._state == CircuitState.OPEN:
+                if self._should_attempt_recovery():
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_successes = 0
+                    return False
+                return True
+            return False
+    
+    def record_success(self):
+        with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                self._half_open_successes += 1
+                if self._half_open_successes >= self.half_open_requests:
+                    self._state = CircuitState.CLOSED
+                    self._failure_count = 0
+            else:
+                self._success_count += 1
+    
+    def record_failure(self):
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+            
+            if self._failure_count >= self.failure_threshold:
+                self._state = CircuitState.OPEN
+    
+    def _should_attempt_recovery(self) -> bool:
+        if self._last_failure_time is None:
+            return True
+        elapsed = time.time() - self._last_failure_time
+        return elapsed >= self.recovery_timeout
+```
 
 ---
 

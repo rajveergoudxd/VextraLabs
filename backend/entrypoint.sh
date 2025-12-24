@@ -6,7 +6,7 @@ python -m app.backend_pre_start
 
 echo "Running database migrations..."
 # Run migrations but don't fail deployment if they fail (e.g. connectivity issues)
-alembic upgrade head || echo "WARNING: Database migrations failed, checking logs..."
+alembic upgrade head
 
 
 echo "Starting FastAPI server..."

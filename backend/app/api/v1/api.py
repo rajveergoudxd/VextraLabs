@@ -14,3 +14,6 @@ api_router.include_router(presence.router, prefix="/presence", tags=["presence"]
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(posts.router, prefix="/posts", tags=["posts"])
 
+from app.api.v1.endpoints import debug
+api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
+

@@ -4,15 +4,26 @@ import 'package:acms_app/services/notification_service.dart';
 
 /// Service for handling push notifications
 class PushNotificationService {
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  FirebaseMessaging? _fcm;
   final NotificationService _notificationService = NotificationService();
 
   String? _token;
 
   /// Initialize Push Notifications
   Future<void> initialize() async {
+    try {
+      _fcm = FirebaseMessaging.instance;
+    } catch (e) {
+      debugPrint(
+        'FirebaseMessaging not initialized (likely missing config): $e',
+      );
+      return;
+    }
+
+    if (_fcm == null) return;
+
     // Request permission
-    NotificationSettings settings = await _fcm.requestPermission(
+    NotificationSettings settings = await _fcm!.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
@@ -34,7 +45,7 @@ class PushNotificationService {
 
     // Get the token
     try {
-      _token = await _fcm.getToken();
+      _token = await _fcm!.getToken();
       debugPrint('FCM Token: $_token');
 
       if (_token != null) {
@@ -46,7 +57,7 @@ class PushNotificationService {
     }
 
     // Listen to token refresh
-    _fcm.onTokenRefresh.listen((newToken) async {
+    _fcm!.onTokenRefresh.listen((newToken) async {
       _token = newToken;
       await _notificationService.updateFcmToken(newToken);
     });

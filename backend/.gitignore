@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.*
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Local databases
+*.sqlite3
+*.db
+
+# Logs
+*.log
+*.json
+!package.json
+!tsconfig.json
+!app.json
+backend/firebase_credentials.json
+
+# Secrets
+firebase_credentials.json

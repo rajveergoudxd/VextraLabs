@@ -77,7 +77,13 @@ void main() async {
     final pushService = PushNotificationService();
     await pushService.initialize();
   } catch (e) {
-    debugPrint("Firebase initialization failed: $e");
+    debugPrint("==========================================");
+    debugPrint("FIREBASE INITIALIZATION FAILED");
+    debugPrint("Reason: $e");
+    debugPrint(
+      "Ensure google-services.json (Android) or GoogleService-Info.plist (iOS) are present.",
+    );
+    debugPrint("==========================================");
   }
 
   runApp(
