@@ -16,7 +16,7 @@ class LinkedInService(BaseSocialService):
     
     API_BASE = "https://api.linkedin.com/v2"
     OAUTH_BASE = "https://www.linkedin.com/oauth/v2"
-    API_VERSION = "202401"  # LinkedIn API version (YYYYMM)
+    API_VERSION = "202511"  # LinkedIn API version (YYYYMM) - Nov 2025
     
     # Required scopes for posting to profile
     SCOPES = [
@@ -132,6 +132,7 @@ class LinkedInService(BaseSocialService):
             author_urn = f"urn:li:person:{user_info['sub']}"
             
             logging.info(f"Publishing to LinkedIn for author: {author_urn}")
+            logging.info(f"Using LinkedIn API version: {self.API_VERSION}")
             
             # Build post payload for REST API
             payload = {
