@@ -13,18 +13,20 @@ class CraftPostScreen extends StatefulWidget {
 }
 
 class _CraftPostScreenState extends State<CraftPostScreen> {
-  String _activePlatform = 'LinkedIn';
+  String _activePlatform = 'Inspire';
   late TextEditingController _captionController;
 
-  // LinkedIn is active, others coming soon
+  // Inspire and LinkedIn are active, others coming soon
   final List<String> _platforms = [
+    'Inspire',
     'LinkedIn',
     'Instagram',
     'Facebook',
     'Twitter',
   ];
 
-  bool _isPlatformAvailable(String platform) => platform == 'LinkedIn';
+  bool _isPlatformAvailable(String platform) =>
+      platform == 'Inspire' || platform == 'LinkedIn';
 
   @override
   void initState() {
@@ -439,7 +441,9 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
   Widget _buildPlatformTab(String title) {
     // Basic mapping for icons
     IconData icon;
-    if (title == 'Instagram') {
+    if (title == 'Inspire') {
+      icon = Icons.auto_awesome;
+    } else if (title == 'Instagram') {
       icon = Icons.camera_alt;
     } else if (title == 'Facebook') {
       icon = Icons.public;

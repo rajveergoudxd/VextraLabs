@@ -21,30 +21,13 @@ class ReviewPublishScreen extends StatelessWidget {
         ? selectedMedia.first
         : "https://lh3.googleusercontent.com/aida-public/AB6AXuCNMaqYoRJ9KyycTlyzur1QQZ5ZbkhWh4vbPkS3hpwf3Fi8p0dwT5HL6g_ruqCTYO7jiVcHBx2BdlaJ7pVS0YDPDfcRS6tD_L65i1DQoAv98D9iqwAnROFN4qU4lp5HpsPdI_RVIqjCS-ZxGPjYpk77cB0ovfyvEWwRpznWeZe1i2_7wYs2tGBt7DUJTfVvgGCyCk-IVz1rrxbGEHmL8bubYWdDgRacEFHWoUths9575rnYpofgGBhJRA8sEA4InJxUe8OVoJCTfcc";
 
-    // Platforms to show
-    // Platforms to show
+    // Platforms to show (only Inspire and LinkedIn for now)
     final allPlatforms = [
       {
         'name': 'Inspire',
         'icon': Icons.auto_awesome,
         'color': AppColors.primary,
         'mandatory': true,
-      },
-      {
-        'name': 'Instagram',
-        'icon': Icons.camera_alt,
-        'color': const Color(0xFFE1306C),
-      },
-      {
-        'name': 'Facebook',
-        'icon': Icons.public,
-        'color': const Color(0xFF1877F2),
-      },
-      {
-        'name': 'X (Twitter)',
-        'icon': Icons.flutter_dash,
-        'color': Colors.black,
-        'darkIcon': true,
       },
       {
         'name': 'LinkedIn',
