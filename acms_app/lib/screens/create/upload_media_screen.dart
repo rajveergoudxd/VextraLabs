@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
@@ -20,15 +21,14 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
   @override
   void initState() {
     super.initState();
-    // Open picker immediately after build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_selectedImages.isEmpty) {
-        _pickImages();
-      }
-    });
+    // Removed auto-trigger - let user click Gallery/Camera buttons
   }
 
   Future<void> _pickImages() async {
+    // Check permission first
+    final hasPermission = await _requestPhotosPermission();
+    if (!hasPermission) return;
+
     // Capture provider before async gap
     final provider = context.read<CreationProvider>();
 
@@ -49,19 +49,17 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
         for (final image in images) {
           provider.toggleMediaSelection(image.path);
         }
-      } else if (_selectedImages.isEmpty) {
-        // User cancelled without selecting anything, go back
-        if (mounted) context.pop();
       }
     } catch (e) {
       debugPrint('Error picking images: $e');
-      if (mounted && _selectedImages.isEmpty) {
-        context.pop();
-      }
     }
   }
 
   Future<void> _takePhoto() async {
+    // Check permission first
+    final hasPermission = await _requestCameraPermission();
+    if (!hasPermission) return;
+
     // Capture provider before async gap
     final provider = context.read<CreationProvider>();
 
@@ -84,6 +82,99 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
     } catch (e) {
       debugPrint('Error taking photo: $e');
     }
+  }
+
+  /// Request photos/gallery permission
+  Future<bool> _requestPhotosPermission() async {
+    PermissionStatus status;
+
+    // On Android 13+, use photos permission; on older versions use storage
+    if (Platform.isAndroid) {
+      status = await Permission.photos.request();
+      if (status.isDenied) {
+        // Fallback to storage for older Android
+        status = await Permission.storage.request();
+      }
+    } else {
+      status = await Permission.photos.request();
+    }
+
+    if (status.isGranted || status.isLimited) {
+      return true;
+    }
+
+    if (status.isPermanentlyDenied) {
+      _showPermissionDeniedDialog(
+        'Photo Library Access Required',
+        'Please enable photo library access in app settings to select images.',
+      );
+      return false;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Photo library permission is required to select images',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    return false;
+  }
+
+  /// Request camera permission
+  Future<bool> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+
+    if (status.isGranted) {
+      return true;
+    }
+
+    if (status.isPermanentlyDenied) {
+      _showPermissionDeniedDialog(
+        'Camera Access Required',
+        'Please enable camera access in app settings to take photos.',
+      );
+      return false;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Camera permission is required to take photos'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    return false;
+  }
+
+  /// Show dialog for permanently denied permissions
+  void _showPermissionDeniedDialog(String title, String message) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:acms_app/services/api_client.dart';
 
 /// Service for social features: follow system, user search, public profiles
@@ -73,7 +74,20 @@ class SocialService {
 
   /// Get public profile by user ID
   Future<Map<String, dynamic>> getPublicProfileById(int userId) async {
-    final response = await _apiClient.dio.get('/social/profile-by-id/$userId');
-    return response.data;
+    try {
+      debugPrint('SocialService: Fetching profile for userId: $userId');
+      debugPrint(
+        'SocialService: URL = ${_apiClient.dio.options.baseUrl}/social/profile-by-id/$userId',
+      );
+      final response = await _apiClient.dio.get(
+        '/social/profile-by-id/$userId',
+      );
+      debugPrint('SocialService: Response status: ${response.statusCode}');
+      debugPrint('SocialService: Response data: ${response.data}');
+      return response.data;
+    } catch (e) {
+      debugPrint('SocialService: Error fetching profile - $e');
+      rethrow;
+    }
   }
 }

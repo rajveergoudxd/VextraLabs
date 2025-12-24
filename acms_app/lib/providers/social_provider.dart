@@ -191,17 +191,28 @@ class SocialProvider extends ChangeNotifier {
 
   /// Load public profile by user ID
   Future<void> loadProfileById(int userId) async {
+    debugPrint('=== loadProfileById called with userId: $userId ===');
     _isLoadingProfile = true;
     _profileError = null;
     _currentProfile = null;
     notifyListeners();
 
     try {
+      debugPrint('Calling API: /social/profile-by-id/$userId');
       final response = await _socialService.getPublicProfileById(userId);
+      debugPrint('API Response received: $response');
       _currentProfile = PublicProfile.fromJson(response);
-    } catch (e) {
+      debugPrint('Profile parsed successfully: ${_currentProfile?.username}');
+    } catch (e, stackTrace) {
       _profileError = 'Failed to load profile';
-      debugPrint('Profile load error: $e');
+      debugPrint('=== Profile load error ===');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Try to extract more details if it's a DioException
+      if (e.toString().contains('DioException')) {
+        debugPrint('DioException detected - check network/API response');
+      }
     } finally {
       _isLoadingProfile = false;
       notifyListeners();
