@@ -50,4 +50,104 @@ class PostService {
       throw 'An unexpected error occurred';
     }
   }
+
+  // ============== Draft Methods ==============
+
+  /// Save media and content as a draft
+  Future<Map<String, dynamic>> saveDraft({
+    String? content,
+    List<String>? mediaUrls,
+    List<String>? platforms,
+    String? title,
+  }) async {
+    try {
+      final response = await _client.dio.post(
+        '/posts/drafts',
+        data: {
+          'content': content,
+          'media_urls': mediaUrls ?? [],
+          'platforms': platforms ?? ['inspire'],
+          'title': title ?? 'Untitled Draft',
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to save draft';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get all user's drafts
+  Future<Map<String, dynamic>> getDrafts() async {
+    try {
+      final response = await _client.dio.get('/posts/drafts');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch drafts';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get a specific draft by ID
+  Future<Map<String, dynamic>> getDraft(int draftId) async {
+    try {
+      final response = await _client.dio.get('/posts/drafts/$draftId');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch draft';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Update an existing draft
+  Future<Map<String, dynamic>> updateDraft(
+    int draftId, {
+    String? content,
+    List<String>? mediaUrls,
+    List<String>? platforms,
+    String? title,
+  }) async {
+    try {
+      final response = await _client.dio.put(
+        '/posts/drafts/$draftId',
+        data: {
+          if (content != null) 'content': content,
+          if (mediaUrls != null) 'media_urls': mediaUrls,
+          if (platforms != null) 'platforms': platforms,
+          if (title != null) 'title': title,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to update draft';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Delete a draft
+  Future<void> deleteDraft(int draftId) async {
+    try {
+      await _client.dio.delete('/posts/drafts/$draftId');
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to delete draft';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Publish a draft (convert to published post)
+  Future<Map<String, dynamic>> publishDraft(int draftId) async {
+    try {
+      final response = await _client.dio.post('/posts/drafts/$draftId/publish');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to publish draft';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
 }

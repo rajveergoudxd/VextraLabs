@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -13,8 +13,13 @@ class Post(Base):
     media_urls = Column(JSON, nullable=True)  # List of strings [url1, url2]
     platforms = Column(JSON, nullable=True)   # List of strings ["instagram", "inspire"]
     
+    # Draft support
+    is_draft = Column(Boolean, default=False, index=True)
+    title = Column(String, nullable=True)  # Optional title for drafts
+    
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
     
     # Stats
@@ -23,3 +28,4 @@ class Post(Base):
     
     # Relationships
     owner = relationship("User", back_populates="posts")
+

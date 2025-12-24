@@ -140,7 +140,16 @@ class _InspireScreenState extends State<InspireScreen> {
                     const SizedBox(width: 4),
                     Stack(
                       children: [
-                        _buildHeaderIcon(Icons.notifications_outlined, isDark),
+                        IconButton(
+                          onPressed: () => context.push('/notifications'),
+                          icon: Icon(
+                            Icons.notifications,
+                            color: Colors.grey[600],
+                          ),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
                         Positioned(
                           top: 8,
                           right: 8,
@@ -154,7 +163,6 @@ class _InspireScreenState extends State<InspireScreen> {
                                 color: isDark
                                     ? AppColors.backgroundDark
                                     : AppColors.surfaceLight,
-                                width: 1.5,
                               ),
                             ),
                           ),

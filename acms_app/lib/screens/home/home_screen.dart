@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'package:acms_app/providers/creation_provider.dart';
 
 // Shell Scafold for Persistent Bottom Navigation
 class MainScaffold extends StatelessWidget {
@@ -153,12 +155,27 @@ class MainScaffold extends StatelessWidget {
   }
 }
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
+
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  @override
+  void initState() {
+    super.initState();
+    // Load drafts when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CreationProvider>().loadDrafts();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<CreationProvider>();
 
     return SafeArea(
       bottom: false,
@@ -385,64 +402,32 @@ class HomeView extends StatelessWidget {
                             letterSpacing: 1,
                           ),
                         ),
-                        Text(
-                          'View All',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                        if (provider.drafts.isNotEmpty)
+                          Text(
+                            '${provider.drafts.length} draft${provider.drafts.length > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
 
-                  // Empty State
-                  SizedBox(
-                    width: double.infinity,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.grey[800]
-                                  : Colors.grey[100],
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.history_rounded,
-                              color: Colors.grey[400],
-                              size: 40,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No recent activity',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Your published posts and drafts will appear here',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
+                  // Drafts or Empty State
+                  if (provider.isLoadingDrafts)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator(),
                       ),
-                    ),
-                  ),
+                    )
+                  else if (provider.drafts.isEmpty)
+                    _buildEmptyState(isDark)
+                  else
+                    _buildDraftsList(provider, isDark),
+
                   const SizedBox(height: 80), // Space for scroll
                 ],
               ),
@@ -451,6 +436,234 @@ class HomeView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[800] : Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.history_rounded,
+                color: Colors.grey[400],
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No recent activity',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your published posts and drafts will appear here',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDraftsList(CreationProvider provider, bool isDark) {
+    return Column(
+      children: provider.drafts
+          .map((draft) => _buildDraftCard(draft, isDark, provider))
+          .toList(),
+    );
+  }
+
+  Widget _buildDraftCard(Draft draft, bool isDark, CreationProvider provider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Thumbnail placeholder
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: draft.mediaUrls.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        draft.mediaUrls.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.image_outlined,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.edit_note_rounded,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
+            ),
+            const SizedBox(width: 16),
+            // Draft info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'DRAFT',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          draft.title ?? 'Untitled Draft',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : AppColors.textMain,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    draft.content?.isNotEmpty == true
+                        ? draft.content!.substring(
+                                0,
+                                draft.content!.length > 50
+                                    ? 50
+                                    : draft.content!.length,
+                              ) +
+                              (draft.content!.length > 50 ? '...' : '')
+                        : 'No content',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatTimeAgo(draft.createdAt),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
+            ),
+            // Actions
+            Column(
+              children: [
+                IconButton(
+                  onPressed: () => _continueDraft(draft),
+                  icon: Icon(
+                    Icons.edit_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  tooltip: 'Continue editing',
+                ),
+                IconButton(
+                  onPressed: () => _deleteDraft(draft, provider),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
+                  tooltip: 'Delete draft',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _continueDraft(Draft draft) async {
+    final provider = context.read<CreationProvider>();
+    final success = await provider.loadDraft(draft.id);
+    if (success && mounted) {
+      context.push('/create/craft-post');
+    }
+  }
+
+  void _deleteDraft(Draft draft, CreationProvider provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Draft?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await provider.deleteDraft(draft.id);
+    }
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 7) return '${date.day}/${date.month}';
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
   }
 
   Widget _buildQuickActionBtn(

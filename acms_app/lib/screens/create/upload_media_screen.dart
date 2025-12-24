@@ -55,7 +55,7 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
     }
   }
 
-  Future<void> _takePhoto() async {
+  Future<void> _takePhoto({bool addToExisting = false}) async {
     // Check permission first
     final hasPermission = await _requestCameraPermission();
     if (!hasPermission) return;
@@ -72,15 +72,161 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
       );
       if (photo != null) {
         setState(() {
-          _selectedImages = [photo];
+          if (addToExisting) {
+            // Add to existing selection
+            _selectedImages = [..._selectedImages, photo];
+          } else {
+            // Replace with new photo
+            _selectedImages = [photo];
+          }
         });
-        provider.reset();
-        provider.setMode('manual');
-        provider.setMediaType('gallery');
+        if (!addToExisting) {
+          provider.reset();
+          provider.setMode('manual');
+          provider.setMediaType('gallery');
+        }
         provider.toggleMediaSelection(photo.path);
       }
     } catch (e) {
       debugPrint('Error taking photo: $e');
+    }
+  }
+
+  /// Show bottom sheet to select media source (Gallery or Camera)
+  void _showMediaSourceSheet({bool addToExisting = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              addToExisting ? 'Add more media' : 'Select media source',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : AppColors.textMain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildSourceOption(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (addToExisting) {
+                      _addMoreFromGallery();
+                    } else {
+                      _pickImages();
+                    }
+                  },
+                  isDark: isDark,
+                ),
+                _buildSourceOption(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _takePhoto(addToExisting: addToExisting);
+                  },
+                  isDark: isDark,
+                ),
+              ],
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSourceOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey[850] : Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : AppColors.textMain,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Add more images from gallery to existing selection
+  Future<void> _addMoreFromGallery() async {
+    final hasPermission = await _requestPhotosPermission();
+    if (!hasPermission) return;
+
+    final provider = context.read<CreationProvider>();
+
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages = [..._selectedImages, ...images];
+        });
+        for (final image in images) {
+          provider.toggleMediaSelection(image.path);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking images: $e');
     }
   }
 
@@ -177,6 +323,66 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
     );
   }
 
+  /// Save current media as draft
+  Future<void> _saveDraft(BuildContext context) async {
+    final provider = context.read<CreationProvider>();
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Saving draft...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Save draft (media URLs are already local paths, backend will handle storage)
+      final success = await provider.saveDraft(
+        title: 'Draft ${DateTime.now().toString().substring(0, 16)}',
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft saved! Find it in Recent Activity.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+        provider.reset();
+        context.pop(); // Go back to home
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.draftError ?? 'Failed to save draft'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -204,7 +410,7 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
           if (_selectedImages.isNotEmpty)
             IconButton(
               icon: Icon(Icons.add_photo_alternate_outlined, color: textColor),
-              onPressed: _pickImages,
+              onPressed: () => _showMediaSourceSheet(addToExisting: true),
             ),
         ],
       ),
@@ -449,22 +655,12 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
                       isDark: isDark,
                     ),
                   ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: _buildActionCard(
                       icon: Icons.bookmark_add_outlined,
-                      title: 'Save',
-                      subtitle: 'Use later',
-                      onTap: () {
-                        // Future: Save to library functionality
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Saved to library'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        context.pop();
-                      },
+                      title: 'Save Draft',
+                      subtitle: 'Continue later',
+                      onTap: () => _saveDraft(context),
                       isDark: isDark,
                     ),
                   ),

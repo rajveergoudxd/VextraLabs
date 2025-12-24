@@ -7,20 +7,31 @@ class PostBase(BaseModel):
     content: Optional[str] = None
     media_urls: Optional[List[str]] = None
     platforms: Optional[List[str]] = None
+    title: Optional[str] = None
 
 # Properties to receive on item creation
 class PostCreate(PostBase):
-    pass
+    is_draft: bool = False
+
+# Properties for draft creation
+class DraftCreate(PostBase):
+    pass  # is_draft will be set to True by the endpoint
 
 # Properties to receive on item update
 class PostUpdate(PostBase):
+    pass
+
+# Properties for updating a draft
+class DraftUpdate(PostBase):
     pass
 
 # Properties shared by models stored in DB
 class PostInDBBase(PostBase):
     id: int
     user_id: int
+    is_draft: bool = False
     created_at: datetime
+    updated_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     likes_count: int = 0
     comments_count: int = 0
@@ -30,7 +41,7 @@ class PostInDBBase(PostBase):
 
 # Additional properties to return via API
 class Post(PostInDBBase):
-    user: Optional[Dict[str, Any]] = None # Simplified user info
+    user: Optional[Dict[str, Any]] = None  # Simplified user info
 
 # Additional properties stored in DB
 class PostInDB(PostInDBBase):
@@ -42,3 +53,9 @@ class PostFeed(BaseModel):
     page: int
     size: int
     has_more: bool
+
+# Draft list response
+class DraftList(BaseModel):
+    items: List[Post]
+    total: int
+
