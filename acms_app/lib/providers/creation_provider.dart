@@ -141,10 +141,15 @@ class CreationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Publish result details
+  Map<String, dynamic>? _publishResults;
+  Map<String, dynamic>? get publishResults => _publishResults;
+
   Future<void> publishPost() async {
     _isPublishing = true;
     _publishError = null;
     _publishSuccess = false;
+    _publishResults = null;
     notifyListeners();
 
     try {
@@ -169,15 +174,38 @@ class CreationProvider extends ChangeNotifier {
         mediaUrls = await _postService.uploadMultipleMedia(_selectedMedia);
       }
 
-      await _postService.publishPost(
+      final response = await _postService.publishPost(
         content: content,
         mediaUrls: mediaUrls,
         platforms: apiPlatforms,
       );
 
-      _publishSuccess = true;
+      // Store the full response for detailed status
+      _publishResults = response;
+
+      // Check if overall success
+      if (response['success'] == true) {
+        _publishSuccess = true;
+      } else {
+        // Build error message from failed platforms
+        final results = response['results'] as Map<String, dynamic>?;
+        if (results != null) {
+          final failures = <String>[];
+          results.forEach((platform, result) {
+            if (result['success'] != true) {
+              final error = result['error'] ?? 'Unknown error';
+              failures.add('$platform: $error');
+            }
+          });
+          if (failures.isNotEmpty) {
+            _publishError = failures.join('\n');
+          }
+        }
+        _publishSuccess = false;
+      }
     } catch (e) {
       _publishError = e.toString();
+      _publishSuccess = false;
     } finally {
       _isPublishing = false;
       notifyListeners();
@@ -350,6 +378,7 @@ class CreationProvider extends ChangeNotifier {
     _currentDraftId = null;
     _publishError = null;
     _publishSuccess = false;
+    _publishResults = null;
     notifyListeners();
   }
 }

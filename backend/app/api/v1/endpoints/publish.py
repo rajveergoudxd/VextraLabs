@@ -75,6 +75,16 @@ async def publish_content(
     success_count = 0
     
     for platform in request.platforms:
+        # Handle 'inspire' as internal platform - always succeeds since post is already created
+        if platform == "inspire":
+            results[platform] = {
+                "success": True,
+                "post_id": internal_post.id,
+                "message": "Published to Inspire feed"
+            }
+            success_count += 1
+            continue
+        
         if platform not in SERVICES:
             results[platform] = {
                 "success": False,
@@ -86,7 +96,7 @@ async def publish_content(
         if not connection:
             results[platform] = {
                 "success": False,
-                "error": f"Not connected to {platform}"
+                "error": f"Not connected to {platform}. Please connect your {platform} account first."
             }
             continue
         
@@ -94,7 +104,7 @@ async def publish_content(
         if connection.token_expires_at and datetime.utcnow() >= connection.token_expires_at:
             results[platform] = {
                 "success": False,
-                "error": "Token expired. Please reconnect."
+                "error": "Token expired. Please reconnect your account."
             }
             continue
         
