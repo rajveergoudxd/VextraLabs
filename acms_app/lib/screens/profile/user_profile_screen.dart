@@ -37,8 +37,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   @override
   void dispose() {
-    // Use saved reference instead of context.read()
-    _socialProvider?.clearProfile();
+    // Use saved reference and silent method to avoid notifyListeners during dispose
+    _socialProvider?.clearProfileSilently();
     super.dispose();
   }
 

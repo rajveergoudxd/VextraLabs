@@ -296,4 +296,10 @@ class SocialProvider extends ChangeNotifier {
     _profileError = null;
     notifyListeners();
   }
+
+  /// Clear current profile silently (for use in dispose, doesn't notify listeners)
+  void clearProfileSilently() {
+    _currentProfile = null;
+    _profileError = null;
+  }
 }

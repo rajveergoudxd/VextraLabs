@@ -320,7 +320,8 @@ def get_public_profile(
     )
 
 
-@router.get("/profile/id/{user_id}", response_model=PublicProfile)
+# Use different path structure to avoid conflict with /profile/{username}
+@router.get("/profile-by-id/{user_id}", response_model=PublicProfile)
 def get_public_profile_by_id(
     user_id: int,
     db: Session = Depends(deps.get_db),
@@ -361,3 +362,4 @@ def get_public_profile_by_id(
         is_following=is_following,
         is_followed_by=is_followed_by
     )
+
