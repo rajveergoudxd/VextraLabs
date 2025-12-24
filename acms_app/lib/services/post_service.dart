@@ -1,8 +1,49 @@
 import 'package:dio/dio.dart';
 import 'package:acms_app/services/api_client.dart';
+import 'dart:io';
 
 class PostService {
   final ApiClient _client = ApiClient();
+
+  /// Upload a media file to cloud storage and return the URL
+  Future<String> uploadMedia(String localPath) async {
+    try {
+      final file = File(localPath.replaceFirst('file://', ''));
+      if (!await file.exists()) {
+        throw 'File not found: $localPath';
+      }
+
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split('/').last,
+        ),
+      });
+
+      final response = await _client.dio.post('/upload/', data: formData);
+      return response.data['url'];
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to upload media';
+    } catch (e) {
+      throw 'Failed to upload media: $e';
+    }
+  }
+
+  /// Upload multiple media files and return their URLs
+  Future<List<String>> uploadMultipleMedia(List<String> localPaths) async {
+    final urls = <String>[];
+    for (final path in localPaths) {
+      // Skip if already a URL
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        urls.add(path);
+      } else {
+        // Upload local file
+        final url = await uploadMedia(path);
+        urls.add(url);
+      }
+    }
+    return urls;
+  }
 
   Future<Map<String, dynamic>> publishPost({
     required String content,

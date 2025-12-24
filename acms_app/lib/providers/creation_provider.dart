@@ -163,9 +163,15 @@ class CreationProvider extends ChangeNotifier {
         return p.toLowerCase();
       }).toList();
 
+      // Upload local media files to cloud storage first
+      List<String> mediaUrls = [];
+      if (_selectedMedia.isNotEmpty) {
+        mediaUrls = await _postService.uploadMultipleMedia(_selectedMedia);
+      }
+
       await _postService.publishPost(
         content: content,
-        mediaUrls: _selectedMedia,
+        mediaUrls: mediaUrls,
         platforms: apiPlatforms,
       );
 

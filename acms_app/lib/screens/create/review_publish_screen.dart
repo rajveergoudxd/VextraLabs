@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'dart:io';
 
 class ReviewPublishScreen extends StatelessWidget {
   const ReviewPublishScreen({super.key});
@@ -363,12 +364,7 @@ class ReviewPublishScreen extends StatelessWidget {
                   Colors.transparent,
                   BlendMode.dst,
                 ),
-                child: CachedNetworkImage(
-                  imageUrl: image,
-                  height: 250,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: _buildMediaImage(image),
               ),
               if (mediaCount > 1)
                 Positioned(
@@ -460,5 +456,46 @@ class ReviewPublishScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Helper to display media from either local file path or network URL
+  Widget _buildMediaImage(String path) {
+    // Check if it's a local file path
+    if (path.startsWith('/') || path.startsWith('file://')) {
+      return SizedBox(
+        height: 250,
+        width: double.infinity,
+        child: Image.file(
+          File(path.replaceFirst('file://', '')),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 250,
+              color: Colors.grey[300],
+              child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      // Network URL
+      return CachedNetworkImage(
+        imageUrl: path,
+        height: 250,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorWidget: (context, url, error) {
+          return Container(
+            height: 250,
+            color: Colors.grey[300],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            ),
+          );
+        },
+      );
+    }
   }
 }
