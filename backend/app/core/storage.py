@@ -16,41 +16,27 @@ class StorageService:
             return cls._client
             
         try:
-            # Try multiple credential sources in order:
-            
-            # 1. Check for credentials in Docker container location (/code/)
-            docker_creds = '/code/firebase_credentials.json'
-            if os.path.exists(docker_creds):
-                credentials = service_account.Credentials.from_service_account_file(docker_creds)
-                cls._client = storage.Client(credentials=credentials)
-                logging.info("Using /code/firebase_credentials.json")
-                return cls._client
-            
-            # 2. Check for credentials JSON file in the backend directory (local dev)
-            local_creds = os.path.join(os.path.dirname(__file__), '../../firebase_credentials.json')
-            if os.path.exists(local_creds):
-                credentials = service_account.Credentials.from_service_account_file(local_creds)
-                cls._client = storage.Client(credentials=credentials)
-                logging.info("Using local firebase_credentials.json")
-                return cls._client
-            
-            # 3. Check GOOGLE_APPLICATION_CREDENTIALS env var
-            if settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
-                credentials = service_account.Credentials.from_service_account_file(
-                    settings.GOOGLE_APPLICATION_CREDENTIALS
-                )
-                cls._client = storage.Client(credentials=credentials)
-                logging.info("Using GOOGLE_APPLICATION_CREDENTIALS")
-                return cls._client
-            
-            # 3. Try default credentials (works on Cloud Run with proper IAM)
+            # On Cloud Run, default credentials automatically use the attached service account
+            # This is the simplest and most secure approach
             cls._client = storage.Client()
-            logging.info("Using default Cloud Run credentials")
+            logging.info("Using default GCP credentials (Cloud Run service account)")
             return cls._client
             
         except Exception as e:
-            logging.error(f"Failed to initialize storage client: {e}")
-            raise
+            logging.warning(f"Default credentials failed: {e}, trying local file...")
+            
+            # Fallback: Check for local credentials file (for local development)
+            local_creds = os.path.join(os.path.dirname(__file__), '../../firebase_credentials.json')
+            if os.path.exists(local_creds):
+                try:
+                    credentials = service_account.Credentials.from_service_account_file(local_creds)
+                    cls._client = storage.Client(credentials=credentials)
+                    logging.info("Using local firebase_credentials.json")
+                    return cls._client
+                except Exception as e2:
+                    logging.error(f"Local credentials also failed: {e2}")
+            
+            raise Exception(f"Could not initialize storage client: {e}")
 
     @staticmethod
     async def upload_file(file: UploadFile, folder: str = "uploads") -> str:
@@ -82,4 +68,5 @@ class StorageService:
         except Exception as e:
             logging.error(f"Failed to upload file to GCS: {e}")
             raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
 
