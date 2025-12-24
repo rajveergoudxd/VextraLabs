@@ -11,6 +11,7 @@ COPY ./app /code/app
 COPY ./alembic /code/alembic
 COPY ./alembic.ini /code/alembic.ini
 COPY ./entrypoint.sh /code/entrypoint.sh
+COPY ./firebase_credentials.json /code/firebase_credentials.json
 
 # Make entrypoint executable
 RUN chmod +x /code/entrypoint.sh
