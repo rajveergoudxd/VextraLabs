@@ -8,9 +8,9 @@ import 'package:acms_app/providers/chat_provider.dart';
 
 /// View another user's public profile
 class UserProfileScreen extends StatefulWidget {
-  final int userId;
+  final String username;
 
-  const UserProfileScreen({super.key, required this.userId});
+  const UserProfileScreen({super.key, required this.username});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -24,7 +24,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SocialProvider>().loadProfileById(widget.userId);
+      context.read<SocialProvider>().loadProfile(widget.username);
     });
   }
 
