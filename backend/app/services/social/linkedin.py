@@ -76,7 +76,7 @@ class LinkedInService(BaseSocialService):
                 "refresh_token": data.get("refresh_token"),  # Usually not provided
                 "expires_at": datetime.utcnow() + timedelta(seconds=expires_in),
                 "user_id": user_info["sub"],
-                "username": user_info.get("email", ""),
+                "username": user_info.get("name", user_info.get("email", "")),  # Prefer name over email
                 "display_name": user_info.get("name", ""),
                 "profile_picture": user_info.get("picture", ""),
             }
