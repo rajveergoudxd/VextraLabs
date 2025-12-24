@@ -65,7 +65,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         title: Consumer<SocialProvider>(
           builder: (context, provider, _) {
             return Text(
-              provider.currentProfile?.username ?? widget.username,
+              provider.currentProfile?.username ?? 'User',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
