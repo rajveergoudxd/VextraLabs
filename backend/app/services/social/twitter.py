@@ -34,10 +34,13 @@ class TwitterService(BaseSocialService):
         access_token_secret: Optional[str] = None
     ) -> str:
         """Generate OAuth 1.0a Authorization header"""
-        # ... implementation ...
         import hmac, hashlib, time, uuid
-        from urllib.parse import quote, urlencode
+        from urllib.parse import quote
         
+        # Helper for strict RFC 3986 encoding
+        def percent_encode(s: str) -> str:
+            return quote(str(s), safe='')
+            
         oauth_params = {
             "oauth_consumer_key": settings.TWITTER_API_KEY,
             "oauth_nonce": str(uuid.uuid4()),
@@ -55,17 +58,17 @@ class TwitterService(BaseSocialService):
         # Sort and encode
         encoded_params = []
         for k, v in sorted(all_params.items()):
-            encoded_params.append(f"{quote(str(k))}={quote(str(v))}")
+            encoded_params.append(f"{percent_encode(k)}={percent_encode(v)}")
             
         param_string = "&".join(encoded_params)
         
         # Base string
-        base_string = f"{method.upper()}&{quote(url)}&{quote(param_string)}"
+        base_string = f"{method.upper()}&{percent_encode(url)}&{percent_encode(param_string)}"
         
         # Signing key
-        signing_key = f"{quote(settings.TWITTER_API_KEY_SECRET)}&"
+        signing_key = f"{percent_encode(settings.TWITTER_API_KEY_SECRET)}&"
         if access_token_secret:
-            signing_key += quote(access_token_secret)
+            signing_key += percent_encode(access_token_secret)
             
         # Calculate signature
         signature = hmac.new(
@@ -76,8 +79,15 @@ class TwitterService(BaseSocialService):
         
         oauth_params["oauth_signature"] = base64.b64encode(signature).decode()
         
-        # Header
-        header_parts = [f'{k}="{quote(v)}"' for k, v in sorted(oauth_params.items())]
+        # Header - Only include oauth_ params (plus realm if needed, but usually not)
+        # Note: If params contained 'oauth_callback', it SHOULD be in the header usually.
+        # So we merge params into header dict if they start with oauth_
+        header_params = oauth_params.copy()
+        for k, v in params.items():
+            if k.startswith("oauth_"):
+                header_params[k] = v
+        
+        header_parts = [f'{percent_encode(k)}="{percent_encode(v)}"' for k, v in sorted(header_params.items())]
         return "OAuth " + ", ".join(header_parts)
 
     async def get_authorization_url(self, state: str) -> Dict[str, Any]:
