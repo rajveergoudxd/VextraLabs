@@ -42,6 +42,9 @@ class PostInDBBase(PostBase):
 # Additional properties to return via API
 class Post(PostInDBBase):
     user: Optional[Dict[str, Any]] = None  # Simplified user info
+    is_liked: bool = False  # Whether current user has liked the post
+    is_saved: bool = False  # Whether current user has saved the post
+    share_token: Optional[str] = None  # Token for shareable link
 
 # Additional properties stored in DB
 class PostInDB(PostInDBBase):

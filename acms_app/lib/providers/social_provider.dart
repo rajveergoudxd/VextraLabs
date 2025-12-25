@@ -121,6 +121,14 @@ class SocialProvider extends ChangeNotifier {
   // Action state
   bool _isFollowActionLoading = false;
 
+  // Followers/Following list state
+  List<UserSearchResult> _followers = [];
+  List<UserSearchResult> _following = [];
+  bool _isLoadingFollowList = false;
+  String? _followListError;
+  int _followersTotal = 0;
+  int _followingTotal = 0;
+
   // Getters
   List<UserSearchResult> get searchResults => _searchResults;
   bool get isSearching => _isSearching;
@@ -132,6 +140,14 @@ class SocialProvider extends ChangeNotifier {
   String? get profileError => _profileError;
 
   bool get isFollowActionLoading => _isFollowActionLoading;
+
+  // Followers/Following list getters
+  List<UserSearchResult> get followers => _followers;
+  List<UserSearchResult> get following => _following;
+  bool get isLoadingFollowList => _isLoadingFollowList;
+  String? get followListError => _followListError;
+  int get followersTotal => _followersTotal;
+  int get followingTotal => _followingTotal;
 
   /// Search users by username or full name
   Future<void> searchUsers(String query) async {
@@ -243,6 +259,9 @@ class SocialProvider extends ChangeNotifier {
         );
       }
 
+      // Update followers/following lists
+      _updateFollowStatusInLists(userId, true);
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -281,6 +300,9 @@ class SocialProvider extends ChangeNotifier {
         );
       }
 
+      // Update followers/following lists
+      _updateFollowStatusInLists(userId, false);
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -298,6 +320,89 @@ class SocialProvider extends ChangeNotifier {
       return unfollowUser(userId);
     } else {
       return followUser(userId);
+    }
+  }
+
+  /// Load followers list for a user
+  Future<void> loadFollowers(int userId) async {
+    _isLoadingFollowList = true;
+    _followListError = null;
+    notifyListeners();
+
+    try {
+      final response = await _socialService.getFollowers(userId);
+      final list = (response['followers'] as List)
+          .map(
+            (json) => UserSearchResult(
+              id: json['id'],
+              username: json['username'],
+              fullName: json['full_name'],
+              profilePicture: json['profile_picture'],
+              isFollowing: json['is_following'] ?? false,
+            ),
+          )
+          .toList();
+      _followers = list;
+      _followersTotal = response['total'] ?? list.length;
+    } catch (e) {
+      _followListError = 'Failed to load followers';
+      debugPrint('Load followers error: $e');
+    } finally {
+      _isLoadingFollowList = false;
+      notifyListeners();
+    }
+  }
+
+  /// Load following list for a user
+  Future<void> loadFollowing(int userId) async {
+    _isLoadingFollowList = true;
+    _followListError = null;
+    notifyListeners();
+
+    try {
+      final response = await _socialService.getFollowing(userId);
+      final list = (response['following'] as List)
+          .map(
+            (json) => UserSearchResult(
+              id: json['id'],
+              username: json['username'],
+              fullName: json['full_name'],
+              profilePicture: json['profile_picture'],
+              isFollowing: true, // Users in following list are always followed
+            ),
+          )
+          .toList();
+      _following = list;
+      _followingTotal = response['total'] ?? list.length;
+    } catch (e) {
+      _followListError = 'Failed to load following';
+      debugPrint('Load following error: $e');
+    } finally {
+      _isLoadingFollowList = false;
+      notifyListeners();
+    }
+  }
+
+  /// Clear followers/following lists
+  void clearFollowLists() {
+    _followers = [];
+    _following = [];
+    _followListError = null;
+    notifyListeners();
+  }
+
+  /// Update follow status in followers/following lists
+  void _updateFollowStatusInLists(int userId, bool isFollowing) {
+    _followers = _followers.map((user) {
+      if (user.id == userId) {
+        return user.copyWith(isFollowing: isFollowing);
+      }
+      return user;
+    }).toList();
+
+    // For following list, if user unfollows, remove from list
+    if (!isFollowing) {
+      _following = _following.where((user) => user.id != userId).toList();
     }
   }
 

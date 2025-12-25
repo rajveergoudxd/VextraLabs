@@ -10,6 +10,7 @@ class MessageType(str, enum.Enum):
     TEXT = "text"
     IMAGE = "image"
     VIDEO = "video"
+    POST_SHARE = "post_share"  # Shared post from Inspire section
 
 
 class Message(Base):
@@ -39,6 +40,13 @@ class Message(Base):
         nullable=False
     )
     media_url = Column(String(500), nullable=True)  # URL for images/videos
+    
+    # Post sharing (for POST_SHARE message type)
+    shared_post_id = Column(
+        Integer,
+        ForeignKey("posts.id", ondelete="SET NULL"),
+        nullable=True
+    )
     
     # Timestamps and status
     created_at = Column(DateTime(timezone=True), server_default=func.now())

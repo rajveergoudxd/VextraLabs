@@ -8,6 +8,7 @@ from app.api import deps
 from app.models.user import User as UserModel
 from app.models.conversation import Conversation, ConversationParticipant
 from app.models.message import Message, MessageType
+from app.models.post import Post
 from app.schemas.chat import (
     ConversationCreate,
     ConversationResponse,
@@ -46,6 +47,24 @@ def get_message_response(message: Message, db: Session) -> MessageResponse:
                 profile_picture=sender_user.profile_picture
             )
     
+    # Get shared post data if this is a post_share message
+    shared_post = None
+    if message.shared_post_id:
+        post = db.query(Post).filter(Post.id == message.shared_post_id).first()
+        if post:
+            shared_post = {
+                "id": post.id,
+                "content": post.content,
+                "media_urls": post.media_urls,
+                "user": {
+                    "id": post.owner.id,
+                    "username": post.owner.username,
+                    "profile_picture": post.owner.profile_picture,
+                } if post.owner else None,
+                "likes_count": post.likes_count,
+                "comments_count": post.comments_count,
+            }
+    
     return MessageResponse(
         id=message.id,
         conversation_id=message.conversation_id,
@@ -54,6 +73,8 @@ def get_message_response(message: Message, db: Session) -> MessageResponse:
         content=message.content,
         message_type=message.message_type,
         media_url=message.media_url,
+        shared_post_id=message.shared_post_id,
+        shared_post=shared_post,
         created_at=message.created_at,
         is_read=message.is_read,
         read_at=message.read_at
@@ -248,7 +269,8 @@ def send_message(
         sender_id=current_user.id,
         content=message_in.content,
         message_type=message_in.message_type.value,
-        media_url=message_in.media_url
+        media_url=message_in.media_url,
+        shared_post_id=message_in.shared_post_id
     )
     db.add(message)
     

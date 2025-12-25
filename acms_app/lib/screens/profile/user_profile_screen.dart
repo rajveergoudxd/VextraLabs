@@ -144,8 +144,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildStat('Posts', profile.postsCount, isDark),
-                      _buildStat('Followers', profile.followersCount, isDark),
-                      _buildStat('Following', profile.followingCount, isDark),
+                      _buildStat(
+                        'Followers',
+                        profile.followersCount,
+                        isDark,
+                        onTap: () {
+                          context.push('/follow-list/${profile.id}/followers');
+                        },
+                      ),
+                      _buildStat(
+                        'Following',
+                        profile.followingCount,
+                        isDark,
+                        onTap: () {
+                          context.push('/follow-list/${profile.id}/following');
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -289,20 +303,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return '?';
   }
 
-  Widget _buildStat(String label, int count, bool isDark) {
-    return Column(
-      children: [
-        Text(
-          _formatCount(count),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.grey[900],
+  Widget _buildStat(
+    String label,
+    int count,
+    bool isDark, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Text(
+            _formatCount(count),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.grey[900],
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-      ],
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+        ],
+      ),
     );
   }
 

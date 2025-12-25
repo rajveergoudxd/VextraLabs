@@ -84,6 +84,10 @@ class CreationProvider extends ChangeNotifier {
   String? _draftError;
   int? _currentDraftId; // If editing an existing draft
 
+  // My Posts State (for Recent Activity)
+  List<Map<String, dynamic>> _myPosts = [];
+  bool _isLoadingMyPosts = false;
+
   String? get mode => _mode;
   String? get mediaType => _mediaType;
   List<String> get selectedMedia => _selectedMedia;
@@ -100,6 +104,10 @@ class CreationProvider extends ChangeNotifier {
   bool get isSavingDraft => _isSavingDraft;
   String? get draftError => _draftError;
   int? get currentDraftId => _currentDraftId;
+
+  // My Posts getters
+  List<Map<String, dynamic>> get myPosts => _myPosts;
+  bool get isLoadingMyPosts => _isLoadingMyPosts;
 
   void setMode(String mode) {
     _mode = mode;
@@ -291,6 +299,27 @@ class CreationProvider extends ChangeNotifier {
       _isLoadingDrafts = false;
       notifyListeners();
     }
+  }
+
+  /// Load current user's published posts
+  Future<void> loadMyPosts() async {
+    _isLoadingMyPosts = true;
+    notifyListeners();
+
+    try {
+      final response = await _postService.getMyPosts(page: 1, size: 10);
+      _myPosts = List<Map<String, dynamic>>.from(response['items'] ?? []);
+    } catch (e) {
+      debugPrint('Error loading my posts: $e');
+    } finally {
+      _isLoadingMyPosts = false;
+      notifyListeners();
+    }
+  }
+
+  /// Load both drafts and my posts for Recent Activity
+  Future<void> loadRecentActivity() async {
+    await Future.wait([loadDrafts(), loadMyPosts()]);
   }
 
   /// Load a specific draft for editing

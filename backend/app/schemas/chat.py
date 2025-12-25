@@ -9,6 +9,7 @@ class MessageTypeEnum(str, Enum):
     TEXT = "text"
     IMAGE = "image"
     VIDEO = "video"
+    POST_SHARE = "post_share"  # Shared post from Inspire section
 
 
 # ============== Message Schemas ==============
@@ -18,6 +19,7 @@ class MessageCreate(BaseModel):
     content: Optional[str] = None
     message_type: MessageTypeEnum = MessageTypeEnum.TEXT
     media_url: Optional[str] = None
+    shared_post_id: Optional[int] = None  # For POST_SHARE type
 
 
 class MessageSender(BaseModel):
@@ -40,6 +42,8 @@ class MessageResponse(BaseModel):
     content: Optional[str]
     message_type: str
     media_url: Optional[str]
+    shared_post_id: Optional[int] = None  # For POST_SHARE type
+    shared_post: Optional[dict] = None  # Embedded post data for display
     created_at: datetime
     is_read: bool
     read_at: Optional[datetime]

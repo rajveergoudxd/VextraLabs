@@ -119,10 +119,31 @@ class ChatService {
         filename: fileName,
         contentType: mediaType,
       ),
+      'folder': 'chat', // Organize chat media in a separate folder
     });
 
-    final response = await _apiClient.dio.post('/upload/file', data: formData);
+    try {
+      final response = await _apiClient.dio.post('/upload/', data: formData);
+      return response.data['url'];
+    } catch (e) {
+      return null;
+    }
+  }
 
-    return response.data['url'];
+  /// Send a post share message
+  Future<Map<String, dynamic>> sendPostShareMessage(
+    int conversationId,
+    int postId, {
+    String? caption,
+  }) async {
+    final response = await _apiClient.dio.post(
+      '/chat/conversations/$conversationId/messages',
+      data: {
+        'content': caption ?? 'Shared a post',
+        'message_type': 'post_share',
+        'shared_post_id': postId,
+      },
+    );
+    return response.data;
   }
 }

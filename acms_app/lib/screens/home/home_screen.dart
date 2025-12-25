@@ -166,9 +166,9 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    // Load drafts when screen loads
+    // Load drafts and posts when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CreationProvider>().loadDrafts();
+      context.read<CreationProvider>().loadRecentActivity();
     });
   }
 
@@ -402,31 +402,65 @@ class _HomeViewState extends State<HomeView> {
                             letterSpacing: 1,
                           ),
                         ),
-                        if (provider.drafts.isNotEmpty)
-                          Text(
-                            '${provider.drafts.length} draft${provider.drafts.length > 1 ? 's' : ''}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
+                        Row(
+                          children: [
+                            if (provider.drafts.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${provider.drafts.length} draft${provider.drafts.length > 1 ? 's' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ),
+                            if (provider.myPosts.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${provider.myPosts.length} post${provider.myPosts.length > 1 ? 's' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
 
                   // Drafts or Empty State
-                  if (provider.isLoadingDrafts)
+                  if (provider.isLoadingDrafts || provider.isLoadingMyPosts)
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(32),
                         child: CircularProgressIndicator(),
                       ),
                     )
-                  else if (provider.drafts.isEmpty)
+                  else if (provider.drafts.isEmpty && provider.myPosts.isEmpty)
                     _buildEmptyState(isDark)
                   else
-                    _buildDraftsList(provider, isDark),
+                    _buildActivityList(provider, isDark),
 
                   const SizedBox(height: 80), // Space for scroll
                 ],
@@ -479,11 +513,158 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildDraftsList(CreationProvider provider, bool isDark) {
+  Widget _buildActivityList(CreationProvider provider, bool isDark) {
     return Column(
-      children: provider.drafts
-          .map((draft) => _buildDraftCard(draft, isDark, provider))
-          .toList(),
+      children: [
+        // Published posts first
+        ...provider.myPosts.map((post) => _buildPostCard(post, isDark)),
+        // Then drafts
+        ...provider.drafts.map(
+          (draft) => _buildDraftCard(draft, isDark, provider),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostCard(Map<String, dynamic> post, bool isDark) {
+    final mediaUrls = List<String>.from(post['media_urls'] ?? []);
+    final content = post['content'] as String? ?? '';
+    final createdAt = DateTime.tryParse(post['created_at'] ?? '');
+    final likesCount = post['likes_count'] ?? 0;
+    final commentsCount = post['comments_count'] ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thumbnail
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: mediaUrls.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        mediaUrls.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.image_outlined,
+                          color: Colors.green[600],
+                          size: 24,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.article_outlined,
+                      color: Colors.green[600],
+                      size: 24,
+                    ),
+            ),
+            const SizedBox(width: 12),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'PUBLISHED',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (createdAt != null)
+                        Text(
+                          _formatTimeAgo(createdAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    content.isNotEmpty
+                        ? (content.length > 60
+                              ? '${content.substring(0, 60)}...'
+                              : content)
+                        : 'No caption',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.favorite_border,
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$likesCount',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$commentsCount',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -498,45 +679,46 @@ class _HomeViewState extends State<HomeView> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail placeholder
+            // Thumbnail
             Container(
-              width: 60,
-              height: 60,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: draft.mediaUrls.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.network(
                         draft.mediaUrls.first,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Icon(
                           Icons.image_outlined,
-                          color: AppColors.primary,
-                          size: 28,
+                          color: Colors.orange[700],
+                          size: 24,
                         ),
                       ),
                     )
                   : Icon(
                       Icons.edit_note_rounded,
-                      color: AppColors.primary,
-                      size: 28,
+                      color: Colors.orange[700],
+                      size: 24,
                     ),
             ),
-            const SizedBox(width: 16),
-            // Draft info
+            const SizedBox(width: 12),
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,7 +727,7 @@ class _HomeViewState extends State<HomeView> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
+                          horizontal: 6,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
@@ -556,7 +738,7 @@ class _HomeViewState extends State<HomeView> {
                           'DRAFT',
                           style: TextStyle(
                             color: Colors.orange,
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -564,9 +746,9 @@ class _HomeViewState extends State<HomeView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          draft.title ?? 'Untitled Draft',
+                          draft.title ?? 'Untitled',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: isDark ? Colors.white : AppColors.textMain,
                           ),
@@ -578,17 +760,15 @@ class _HomeViewState extends State<HomeView> {
                   const SizedBox(height: 4),
                   Text(
                     draft.content?.isNotEmpty == true
-                        ? draft.content!.substring(
-                                0,
-                                draft.content!.length > 50
-                                    ? 50
-                                    : draft.content!.length,
-                              ) +
-                              (draft.content!.length > 50 ? '...' : '')
+                        ? (draft.content!.length > 50
+                              ? '${draft.content!.substring(0, 50)}...'
+                              : draft.content!)
                         : 'No content',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     _formatTimeAgo(draft.createdAt),
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
@@ -596,30 +776,46 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
             ),
-            // Actions
-            Column(
+            const SizedBox(width: 8),
+            // Horizontal Actions
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: () => _continueDraft(draft),
-                  icon: Icon(
-                    Icons.edit_rounded,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  tooltip: 'Continue editing',
+                _buildSmallActionButton(
+                  icon: Icons.edit_rounded,
+                  color: AppColors.primary,
+                  onTap: () => _continueDraft(draft),
+                  tooltip: 'Continue',
                 ),
-                IconButton(
-                  onPressed: () => _deleteDraft(draft, provider),
-                  icon: Icon(
-                    Icons.delete_outline,
-                    color: Colors.grey[400],
-                    size: 20,
-                  ),
-                  tooltip: 'Delete draft',
+                const SizedBox(width: 4),
+                _buildSmallActionButton(
+                  icon: Icons.delete_outline,
+                  color: Colors.grey[400]!,
+                  onTap: () => _deleteDraft(draft, provider),
+                  tooltip: 'Delete',
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 18, color: color),
         ),
       ),
     );

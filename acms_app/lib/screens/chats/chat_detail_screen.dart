@@ -200,56 +200,63 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           final isOnline = chatProvider.onlineUsers.contains(otherUser?.id);
 
-          return Row(
-            children: [
-              Stack(
-                children: [
-                  _buildSmallAvatar(otherUser?.profilePicture),
-                  if (isOnline)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.backgroundDark
-                                : Colors.white,
-                            width: 2,
+          return GestureDetector(
+            onTap: () {
+              if (otherUser?.id != null) {
+                context.push('/profile/${otherUser!.id}');
+              }
+            },
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    _buildSmallAvatar(otherUser?.profilePicture),
+                    if (isOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.backgroundDark
+                                  : Colors.white,
+                              width: 2,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      otherUser?.fullName ?? otherUser?.username ?? 'Unknown',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.grey[900],
-                      ),
-                    ),
-                    Text(
-                      isOnline ? 'Active now' : 'Tap to view profile',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isOnline ? Colors.green : Colors.grey[500],
-                      ),
-                    ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        otherUser?.fullName ?? otherUser?.username ?? 'Unknown',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.grey[900],
+                        ),
+                      ),
+                      Text(
+                        isOnline ? 'Active now' : 'Tap to view profile',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOnline ? Colors.green : Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -536,33 +543,42 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Send button
-          Consumer<ChatProvider>(
-            builder: (context, chatProvider, _) {
-              final hasText = _messageController.text.trim().isNotEmpty;
+          // Send button - ValueListenableBuilder ensures UI updates as user types
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _messageController,
+            builder: (context, textValue, _) {
+              final hasText = textValue.text.trim().isNotEmpty;
 
-              return IconButton(
-                onPressed: hasText && !chatProvider.isSending
-                    ? _sendMessage
-                    : null,
-                icon: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: hasText ? AppColors.primary : Colors.grey[400],
-                    shape: BoxShape.circle,
-                  ),
-                  child: chatProvider.isSending
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send, color: Colors.white, size: 18),
-                ),
+              return Consumer<ChatProvider>(
+                builder: (context, chatProvider, _) {
+                  return IconButton(
+                    onPressed: hasText && !chatProvider.isSending
+                        ? _sendMessage
+                        : null,
+                    icon: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: hasText ? AppColors.primary : Colors.grey[400],
+                        shape: BoxShape.circle,
+                      ),
+                      child: chatProvider.isSending
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                    ),
+                  );
+                },
               );
             },
           ),

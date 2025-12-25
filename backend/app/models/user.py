@@ -30,4 +30,5 @@ class User(Base):
 
     # Relationships
     posts = relationship("Post", back_populates="owner")
+    saved_posts = relationship("SavedPost", back_populates="user", cascade="all, delete-orphan")
 

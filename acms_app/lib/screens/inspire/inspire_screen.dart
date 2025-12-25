@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/inspire_provider.dart';
+import 'package:acms_app/widgets/comment_bottom_sheet.dart';
+import 'package:acms_app/widgets/share_bottom_sheet.dart';
 
 class InspireScreen extends StatefulWidget {
   const InspireScreen({super.key});
@@ -545,18 +547,38 @@ class _InspireScreenState extends State<InspireScreen> {
                 icon: Icons.chat_bubble_outline,
                 label: '${post['comments_count'] ?? 0}',
                 isDark: isDark,
+                onTap: () => CommentBottomSheet.show(
+                  context,
+                  post['id'],
+                  post['comments_count'] ?? 0,
+                ),
               ),
 
-              _buildActionButton(icon: Icons.send_outlined, isDark: isDark),
+              _buildActionButton(
+                icon: Icons.send_outlined,
+                isDark: isDark,
+                onTap: () {
+                  final mediaUrls = post['media_urls'] as List?;
+                  ShareBottomSheet.show(
+                    context,
+                    postId: post['id'],
+                    postContent: post['content'],
+                    postImageUrl: mediaUrls != null && mediaUrls.isNotEmpty
+                        ? mediaUrls[0]
+                        : null,
+                  );
+                },
+              ),
             ],
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () => Provider.of<InspireProvider>(
+              context,
+              listen: false,
+            ).toggleSavePost(post['id']),
             icon: Icon(
-              post['isBookmarked'] == true
-                  ? Icons.bookmark
-                  : Icons.bookmark_border,
-              color: post['isBookmarked'] == true
+              post['is_saved'] == true ? Icons.bookmark : Icons.bookmark_border,
+              color: post['is_saved'] == true
                   ? (isDark ? Colors.white : Colors.grey[900])
                   : (isDark ? Colors.grey[500] : Colors.grey[600]),
             ),

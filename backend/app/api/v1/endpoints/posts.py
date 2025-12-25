@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -6,10 +7,49 @@ from sqlalchemy import desc
 from app.api import deps
 from app.models.post import Post
 from app.models.user import User
+from app.models.like import Like
+from app.models.comment import Comment
+from app.models.saved_post import SavedPost
 from app.schemas import post as post_schema
+from app.schemas import like as like_schema
+from app.schemas import comment as comment_schema
+from app.crud.crud_saved_post import saved_post as saved_post_crud
 from app.core import security
 
 router = APIRouter()
+
+
+def _build_post_response(
+    post: Post, 
+    current_user: Optional[User] = None, 
+    db: Optional[Session] = None
+) -> post_schema.Post:
+    """Helper to build post response with user info, like status, and saved status."""
+    result = post_schema.Post.from_orm(post)
+    result.user = {
+        "id": post.owner.id,
+        "username": post.owner.username,
+        "full_name": post.owner.full_name,
+        "profile_picture": post.owner.profile_picture,
+        "is_verified": False,
+    }
+    result.share_token = post.share_token
+    
+    # Check if current user has liked the post
+    if current_user and db:
+        like_exists = db.query(Like).filter(
+            Like.user_id == current_user.id,
+            Like.post_id == post.id
+        ).first()
+        result.is_liked = like_exists is not None
+        
+        # Check if current user has saved the post
+        result.is_saved = saved_post_crud.is_post_saved(
+            db, user_id=current_user.id, post_id=post.id
+        )
+    
+    return result
+
 
 @router.post("/", response_model=post_schema.Post)
 def create_post(
@@ -20,12 +60,15 @@ def create_post(
     """
     Create new post.
     """
+    # Generate share token for the post
+    share_token = secrets.token_urlsafe(16)
+    
     post = Post(
         content=post_in.content,
         media_urls=post_in.media_urls,
         platforms=post_in.platforms,
         user_id=current_user.id,
-        # In a real scenario, we might set published_at here or after confirmed publish
+        share_token=share_token,
     )
     db.add(post)
     
@@ -36,16 +79,8 @@ def create_post(
     db.commit()
     db.refresh(post)
     
-    # Construct response with user info
-    result = post_schema.Post.from_orm(post)
-    result.user = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_verified": False # Placeholder
-    }
-    return result
+    return _build_post_response(post, current_user, db)
+
 
 @router.get("/feed", response_model=post_schema.PostFeed)
 def get_feed(
@@ -59,22 +94,82 @@ def get_feed(
     """
     skip = (page - 1) * size
     
-    # Simple feed: all posts ordered by creation date desc
-    total = db.query(Post).count()
-    posts = db.query(Post).order_by(desc(Post.created_at)).offset(skip).limit(size).all()
+    # Simple feed: all non-draft posts ordered by creation date desc
+    total = db.query(Post).filter(Post.is_draft == False).count()
+    posts = db.query(Post).filter(Post.is_draft == False).order_by(desc(Post.created_at)).offset(skip).limit(size).all()
     
     post_list = []
     for p in posts:
-        p_schema = post_schema.Post.from_orm(p)
-        # Fetch owner (optimization: use joinedload in query)
-        p_schema.user = {
-            "id": p.owner.id,
-            "username": p.owner.username,
-            "full_name": p.owner.full_name,
-            "profile_picture": p.owner.profile_picture,
-            "is_verified": False,
-        }
-        post_list.append(p_schema)
+        post_list.append(_build_post_response(p, current_user, db))
+    
+    return {
+        "items": post_list,
+        "total": total,
+        "page": page,
+        "size": size,
+        "has_more": (skip + size) < total
+    }
+
+
+@router.get("/user/{user_id}", response_model=post_schema.PostFeed)
+def get_user_posts(
+    user_id: int,
+    db: Session = Depends(deps.get_db),
+    page: int = 1,
+    size: int = 20,
+    current_user: Optional[User] = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get posts for a specific user.
+    """
+    skip = (page - 1) * size
+    
+    # Get non-draft posts by the specified user
+    total = db.query(Post).filter(
+        Post.user_id == user_id,
+        Post.is_draft == False
+    ).count()
+    
+    posts = db.query(Post).filter(
+        Post.user_id == user_id,
+        Post.is_draft == False
+    ).order_by(desc(Post.created_at)).offset(skip).limit(size).all()
+    
+    post_list = [_build_post_response(p, current_user, db) for p in posts]
+    
+    return {
+        "items": post_list,
+        "total": total,
+        "page": page,
+        "size": size,
+        "has_more": (skip + size) < total
+    }
+
+
+@router.get("/my", response_model=post_schema.PostFeed)
+def get_my_posts(
+    db: Session = Depends(deps.get_db),
+    page: int = 1,
+    size: int = 20,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get current user's published posts.
+    """
+    skip = (page - 1) * size
+    
+    # Get non-draft posts by current user
+    total = db.query(Post).filter(
+        Post.user_id == current_user.id,
+        Post.is_draft == False
+    ).count()
+    
+    posts = db.query(Post).filter(
+        Post.user_id == current_user.id,
+        Post.is_draft == False
+    ).order_by(desc(Post.created_at)).offset(skip).limit(size).all()
+    
+    post_list = [_build_post_response(p, current_user, db) for p in posts]
     
     return {
         "items": post_list,
@@ -97,6 +192,8 @@ def create_draft(
     """
     Create a new draft.
     """
+    share_token = secrets.token_urlsafe(16)
+    
     draft = Post(
         content=draft_in.content,
         media_urls=draft_in.media_urls,
@@ -104,20 +201,13 @@ def create_draft(
         title=draft_in.title or "Untitled Draft",
         user_id=current_user.id,
         is_draft=True,
+        share_token=share_token,
     )
     db.add(draft)
     db.commit()
     db.refresh(draft)
     
-    result = post_schema.Post.from_orm(draft)
-    result.user = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_verified": False,
-    }
-    return result
+    return _build_post_response(draft, current_user, db)
 
 
 @router.get("/drafts", response_model=post_schema.DraftList)
@@ -133,17 +223,7 @@ def get_drafts(
         Post.is_draft == True
     ).order_by(desc(Post.created_at)).all()
     
-    draft_list = []
-    for d in drafts:
-        d_schema = post_schema.Post.from_orm(d)
-        d_schema.user = {
-            "id": current_user.id,
-            "username": current_user.username,
-            "full_name": current_user.full_name,
-            "profile_picture": current_user.profile_picture,
-            "is_verified": False,
-        }
-        draft_list.append(d_schema)
+    draft_list = [_build_post_response(d, current_user, db) for d in drafts]
     
     return {"items": draft_list, "total": len(draft_list)}
 
@@ -166,15 +246,7 @@ def get_draft(
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
     
-    result = post_schema.Post.from_orm(draft)
-    result.user = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_verified": False,
-    }
-    return result
+    return _build_post_response(draft, current_user, db)
 
 
 @router.put("/drafts/{draft_id}", response_model=post_schema.Post)
@@ -209,15 +281,7 @@ def update_draft(
     db.commit()
     db.refresh(draft)
     
-    result = post_schema.Post.from_orm(draft)
-    result.user = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_verified": False,
-    }
-    return result
+    return _build_post_response(draft, current_user, db)
 
 
 @router.delete("/drafts/{draft_id}")
@@ -274,25 +338,143 @@ def publish_draft(
     db.commit()
     db.refresh(draft)
     
-    result = post_schema.Post.from_orm(draft)
-    result.user = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_verified": False,
+    return _build_post_response(draft, current_user, db)
+
+
+# ============== Saved Posts Endpoints ==============
+# NOTE: These MUST come BEFORE /{post_id} routes to avoid path parameter conflicts
+
+@router.get("/saved", response_model=post_schema.PostFeed)
+def get_saved_posts(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    page: int = 1,
+    size: int = 20,
+) -> Any:
+    """
+    Get all saved posts for current user with pagination.
+    """
+    skip = (page - 1) * size
+    
+    total = saved_post_crud.count_saved_posts(db, user_id=current_user.id)
+    posts = saved_post_crud.get_saved_posts(
+        db, user_id=current_user.id, skip=skip, limit=size
+    )
+    
+    post_list = [_build_post_response(p, current_user, db) for p in posts]
+    
+    return {
+        "items": post_list,
+        "total": total,
+        "page": page,
+        "size": size,
+        "has_more": (skip + size) < total
     }
-    return result
+
+
+@router.post("/saved/{post_id}")
+def save_post(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> dict:
+    """
+    Save a post to user's saved collection.
+    """
+    post = db.query(Post).filter(Post.id == post_id, Post.is_draft == False).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    saved_post_crud.save_post(db, user_id=current_user.id, post_id=post_id)
+    
+    return {
+        "message": "Post saved successfully",
+        "post_id": post_id,
+        "is_saved": True
+    }
+
+
+@router.delete("/saved/{post_id}")
+def unsave_post(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> dict:
+    """
+    Remove a post from user's saved collection.
+    """
+    removed = saved_post_crud.unsave_post(db, user_id=current_user.id, post_id=post_id)
+    
+    if not removed:
+        raise HTTPException(status_code=404, detail="Saved post not found")
+    
+    return {
+        "message": "Post unsaved successfully",
+        "post_id": post_id,
+        "is_saved": False
+    }
+
+
+# ============== Shared Post Endpoint ==============
+
+@router.get("/shared/{share_token}", response_model=post_schema.Post)
+def get_shared_post(
+    share_token: str,
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    Get a post by share token (public endpoint for deep links).
+    """
+    post = db.query(Post).filter(
+        Post.share_token == share_token,
+        Post.is_draft == False
+    ).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    return _build_post_response(post)
+
+
+# ============== Comments Endpoints ==============
+
+@router.get("/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> comment_schema.CommentDeleteResponse:
+    """
+    Delete a comment (only by the comment owner or post owner).
+    """
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # Check permission: comment owner or post owner can delete
+    post = db.query(Post).filter(Post.id == comment.post_id).first()
+    if comment.user_id != current_user.id and (post and post.user_id != current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    
+    # Update comment count on post
+    if post:
+        post.comments_count = max(0, post.comments_count - 1)
+    
+    db.delete(comment)
+    db.commit()
+    
+    return {"message": "Comment deleted successfully", "id": comment_id}
 
 
 # ============== Individual Post Endpoints ==============
-# NOTE: These MUST come AFTER /drafts routes
+# NOTE: These MUST come AFTER /drafts and /shared routes
 
 @router.get("/{post_id}", response_model=post_schema.Post)
 def get_post(
     post_id: int,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: Optional[User] = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Get post by ID.
@@ -300,44 +482,192 @@ def get_post(
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-        
-    result = post_schema.Post.from_orm(post)
-    result.user = {
-        "id": post.owner.id,
-        "username": post.owner.username,
-        "full_name": post.owner.full_name,
-        "profile_picture": post.owner.profile_picture,
-        "is_verified": False,
-    }
-    return result
+    
+    return _build_post_response(post, current_user, db)
 
-@router.post("/{post_id}/like", response_model=post_schema.Post)
-def like_post(
+
+@router.post("/{post_id}/like", response_model=like_schema.LikeToggleResponse)
+def toggle_like(
     post_id: int,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Like a post.
+    Toggle like on a post. If already liked, unlike it. If not liked, like it.
     """
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    # In a real app reduce redundant likes by checking a Like table
-    # Here we just increment for simplicity as per request
-    post.likes_count += 1
-    db.commit()
-    db.refresh(post)
+    # Check if user already liked this post
+    existing_like = db.query(Like).filter(
+        Like.user_id == current_user.id,
+        Like.post_id == post_id
+    ).first()
     
-    result = post_schema.Post.from_orm(post)
-    result.user = {
-        "id": post.owner.id,
-        "username": post.owner.username,
-        "full_name": post.owner.full_name,
-        "profile_picture": post.owner.profile_picture,
-        "is_verified": False,
+    if existing_like:
+        # Unlike: remove the like
+        db.delete(existing_like)
+        post.likes_count = max(0, post.likes_count - 1)
+        db.commit()
+        
+        return {
+            "is_liked": False,
+            "likes_count": post.likes_count,
+            "message": "Post unliked"
+        }
+    else:
+        # Like: add a new like
+        new_like = Like(user_id=current_user.id, post_id=post_id)
+        db.add(new_like)
+        post.likes_count += 1
+        db.commit()
+        
+        return {
+            "is_liked": True,
+            "likes_count": post.likes_count,
+            "message": "Post liked"
+        }
+
+
+@router.get("/{post_id}/likes", response_model=like_schema.LikeListResponse)
+def get_post_likes(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+    skip: int = 0,
+    limit: int = 50,
+) -> Any:
+    """
+    Get list of users who liked a post.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    total = db.query(Like).filter(Like.post_id == post_id).count()
+    likes = db.query(Like).filter(Like.post_id == post_id).order_by(desc(Like.created_at)).offset(skip).limit(limit).all()
+    
+    like_items = []
+    for like in likes:
+        like_items.append({
+            "id": like.id,
+            "user": {
+                "id": like.user.id,
+                "username": like.user.username,
+                "full_name": like.user.full_name,
+                "profile_picture": like.user.profile_picture,
+            },
+            "created_at": like.created_at,
+        })
+    
+    return {"items": like_items, "total": total}
+
+
+@router.post("/{post_id}/comments", response_model=comment_schema.CommentResponse)
+def create_comment(
+    post_id: int,
+    comment_in: comment_schema.CommentCreate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Add a comment to a post.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    comment = Comment(
+        user_id=current_user.id,
+        post_id=post_id,
+        content=comment_in.content,
+    )
+    db.add(comment)
+    
+    # Update comment count on post
+    post.comments_count += 1
+    
+    db.commit()
+    db.refresh(comment)
+    
+    return {
+        "id": comment.id,
+        "post_id": comment.post_id,
+        "content": comment.content,
+        "created_at": comment.created_at,
+        "updated_at": comment.updated_at,
+        "user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "full_name": current_user.full_name,
+            "profile_picture": current_user.profile_picture,
+        }
     }
-    return result
 
 
+@router.get("/{post_id}/comments", response_model=comment_schema.CommentListResponse)
+def get_post_comments(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_active_user),
+    skip: int = 0,
+    limit: int = 50,
+) -> Any:
+    """
+    Get comments for a post with pagination.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    total = db.query(Comment).filter(Comment.post_id == post_id).count()
+    comments = db.query(Comment).filter(Comment.post_id == post_id).order_by(desc(Comment.created_at)).offset(skip).limit(limit).all()
+    
+    comment_items = []
+    for c in comments:
+        comment_items.append({
+            "id": c.id,
+            "post_id": c.post_id,
+            "content": c.content,
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+            "user": {
+                "id": c.user.id,
+                "username": c.user.username,
+                "full_name": c.user.full_name,
+                "profile_picture": c.user.profile_picture,
+            }
+        })
+    
+    return {
+        "items": comment_items,
+        "total": total,
+        "has_more": (skip + limit) < total
+    }
+
+
+@router.get("/{post_id}/share-link")
+def get_share_link(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> dict:
+    """
+    Get or generate a shareable link for a post.
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Generate share token if not exists
+    if not post.share_token:
+        post.share_token = secrets.token_urlsafe(16)
+        db.commit()
+        db.refresh(post)
+    
+    return {
+        "share_token": post.share_token,
+        "share_url": f"vextra://post/{post.share_token}",
+        "web_url": f"https://vextra.app/post/{post.share_token}"  # For web fallback
+    }

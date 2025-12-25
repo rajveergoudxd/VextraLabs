@@ -26,6 +26,10 @@ class Post(Base):
     likes_count = Column(Integer, default=0)
     comments_count = Column(Integer, default=0)
     
+    # Sharing
+    share_token = Column(String(32), unique=True, index=True, nullable=True)
+    
     # Relationships
     owner = relationship("User", back_populates="posts")
+    saved_by = relationship("SavedPost", back_populates="post", cascade="all, delete-orphan")
 

@@ -13,6 +13,7 @@ import 'package:acms_app/providers/chat_provider.dart';
 import 'package:acms_app/providers/notification_provider.dart';
 import 'package:acms_app/providers/presence_provider.dart';
 import 'package:acms_app/providers/inspire_provider.dart';
+import 'package:acms_app/providers/saved_posts_provider.dart';
 
 // Screens
 import 'package:acms_app/screens/welcome_screen.dart';
@@ -42,6 +43,8 @@ import 'package:acms_app/screens/create/write_text_screen.dart';
 import 'package:acms_app/screens/profile/profile_screen.dart';
 import 'package:acms_app/screens/profile/edit_profile_screen.dart';
 import 'package:acms_app/screens/profile/user_profile_screen.dart';
+import 'package:acms_app/screens/profile/follow_list_screen.dart';
+import 'package:acms_app/screens/profile/saved_posts_screen.dart';
 import 'package:acms_app/screens/settings/settings_screen.dart';
 import 'package:acms_app/screens/settings/change_password_screen.dart';
 import 'package:acms_app/screens/settings/privacy_data_screen.dart';
@@ -51,6 +54,8 @@ import 'package:acms_app/screens/inspire/inspire_screen.dart';
 import 'package:acms_app/screens/inspire/user_search_screen.dart';
 import 'package:acms_app/screens/chats/chats_screen.dart';
 import 'package:acms_app/screens/chats/chat_detail_screen.dart';
+import 'package:acms_app/screens/chats/chat_share_screen.dart';
+import 'package:acms_app/screens/inspire/post_detail_screen.dart';
 
 // Placeholder for tabs that don't exist yet
 class PlaceholderScreen extends StatelessWidget {
@@ -100,6 +105,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => PresenceProvider()),
         ChangeNotifierProvider(create: (_) => InspireProvider()),
+        ChangeNotifierProvider(create: (_) => SavedPostsProvider()),
       ],
 
       child: const AcmsApp(),
@@ -305,6 +311,13 @@ class AcmsApp extends StatelessWidget {
         builder: (context, state) => const NotificationsScreen(),
       ),
 
+      // ---- Saved Posts (Full Screen) ----
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/saved-posts',
+        builder: (context, state) => const SavedPostsScreen(),
+      ),
+
       // ---- Voice Chat (Full Screen) ----
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
@@ -327,10 +340,32 @@ class AcmsApp extends StatelessWidget {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/chats/share',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>? ?? {};
+          return ChatShareScreen(
+            postId: args['postId'] as int? ?? 0,
+            postContent: args['postContent'] as String?,
+            postImageUrl: args['postImageUrl'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/chats/:id',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return ChatDetailScreen(conversationId: id);
+        },
+      ),
+
+      // ---- Post Detail for Deep Links ----
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/post/:shareToken',
+        builder: (context, state) {
+          final shareToken = state.pathParameters['shareToken']!;
+          return PostDetailScreen(shareToken: shareToken);
         },
       ),
 
@@ -346,6 +381,15 @@ class AcmsApp extends StatelessWidget {
         builder: (context, state) {
           final username = state.pathParameters['username']!;
           return UserProfileScreen(username: username);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/follow-list/:userId/:type',
+        builder: (context, state) {
+          final userId = int.parse(state.pathParameters['userId']!);
+          final type = state.pathParameters['type']!;
+          return FollowListScreen(userId: userId, initialTab: type);
         },
       ),
     ],

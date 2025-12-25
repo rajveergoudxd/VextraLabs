@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
+import 'package:acms_app/services/post_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -16,7 +17,47 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _selectedPlatform = 'Instagram';
+  String _selectedPlatform = 'Inspire';
+  final PostService _postService = PostService();
+
+  List<dynamic> _userPosts = [];
+  bool _isLoadingPosts = false;
+  String? _postsError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserPosts();
+    });
+  }
+
+  Future<void> _loadUserPosts() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null) return;
+
+    setState(() {
+      _isLoadingPosts = true;
+      _postsError = null;
+    });
+
+    try {
+      final data = await _postService.getUserPosts(user.id);
+      if (mounted) {
+        setState(() {
+          _userPosts = data['items'] as List;
+          _isLoadingPosts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _postsError = e.toString();
+          _isLoadingPosts = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,9 +102,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .withValues(alpha: 0.95),
           elevation: 0,
           leading: widget.isEmbedded
-              ? null
+              ? IconButton(
+                  icon: const Icon(Icons.bookmark_border),
+                  onPressed: () => context.push('/saved-posts'),
+                )
               : IconButton(
-                  // Hide back button if embedded
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => context.go('/home'),
                 ),
@@ -137,11 +180,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             '${user?.followersCount ?? 0}',
                             'Followers',
                             isDark,
+                            onTap: () {
+                              if (user != null) {
+                                context.push(
+                                  '/follow-list/${user.id}/followers',
+                                );
+                              }
+                            },
                           ),
                           _buildStatItem(
                             '${user?.followingCount ?? 0}',
                             'Following',
                             isDark,
+                            onTap: () {
+                              if (user != null) {
+                                context.push(
+                                  '/follow-list/${user.id}/following',
+                                );
+                              }
+                            },
                           ),
                         ],
                       ),
@@ -207,6 +264,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 children: [
                   _buildPlatformChip(
+                    'Inspire',
+                    Icons.auto_awesome,
+                    _selectedPlatform == 'Inspire',
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPlatformChip(
                     'Instagram',
                     FontAwesomeIcons.instagram,
                     _selectedPlatform == 'Instagram',
@@ -239,8 +303,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
 
-        // Grid Content (Conditionally Empty)
-        if (user?.postsCount == 0 || user?.postsCount == null)
+        // Grid Content for Inspire section
+        if (_selectedPlatform == 'Inspire')
+          ..._buildInspireGrid(isDark)
+        else if (user?.postsCount == 0 || user?.postsCount == null)
           SliverToBoxAdapter(
             child: Container(
               padding: const EdgeInsets.only(top: 80, bottom: 40),
@@ -270,46 +336,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: isDark ? Colors.grey[700] : Colors.grey[500],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  if (_selectedPlatform != 'Instagram') // Just a hint for demo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        "Tap on 'Instagram' to see demo layout (if implemented) or use specific tab logic.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                    ),
                 ],
               ),
             ),
           )
         else
-          SliverPadding(
-            padding: const EdgeInsets.only(
-              left: 2,
-              right: 2,
-              bottom: 100,
-            ), // Bottom padding for nav bar
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 2,
-                mainAxisSpacing: 2,
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.only(top: 80, bottom: 40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.construction,
+                    size: 64,
+                    color: isDark ? Colors.grey[800] : Colors.grey[300],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Coming Soon',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$_selectedPlatform posts will appear here soon.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[700] : Colors.grey[500],
+                    ),
+                  ),
+                ],
               ),
-              delegate: SliverChildListDelegate([
-                // This is where real posts would go if posts_count > 0
-                // For now, if count is > 0 but we don't have list, we can show skeletons or empty.
-                // Assuming logic: if count > 0 we should have data.
-                // But since we are cleaning mock data, and we don't have a posts API yet,
-                // we should probably just show empty unless we want to keep one demo item?
-                // The requirement said "removing mock data", so defaulting to empty state logic above
-                // is correct as most new users have 0 posts.
-
-                // However, for visualization, if you want to see the grid,
-                // we'd need real post objects.
-                // I'll stick to the "No posts yet" for the initial clean state.
-              ]),
             ),
           ),
       ],
@@ -327,25 +389,191 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildStatItem(String value, String label, bool isDark) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : AppColors.textMain,
+  /// Build the Inspire posts grid (returns `List<Widget>` of slivers)
+  List<Widget> _buildInspireGrid(bool isDark) {
+    // Loading state
+    if (_isLoadingPosts) {
+      return [
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.only(top: 80),
+            child: const Center(child: CircularProgressIndicator()),
           ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.grey[400] : Colors.grey[500],
+      ];
+    }
+
+    // Error state
+    if (_postsError != null) {
+      return [
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.only(top: 80, bottom: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: isDark ? Colors.grey[800] : Colors.grey[300],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load posts',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _loadUserPosts,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
-      ],
+      ];
+    }
+
+    // Empty state
+    if (_userPosts.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.only(top: 80, bottom: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 64,
+                  color: isDark ? Colors.grey[800] : Colors.grey[300],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No posts yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your first post to\nsee it here!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey[700] : Colors.grey[500],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: () => context.push('/create/ai'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Post'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Posts grid
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 100),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final post = _userPosts[index];
+            final mediaUrls = post['media_urls'] as List?;
+            final hasMedia = mediaUrls != null && mediaUrls.isNotEmpty;
+            final content = post['content'] as String? ?? '';
+
+            return GestureDetector(
+              onTap: () {
+                // Future: Navigate to post detail
+              },
+              child: Container(
+                color: isDark ? Colors.grey[900] : Colors.grey[100],
+                child: hasMedia
+                    ? CachedNetworkImage(
+                        imageUrl: mediaUrls.first,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: isDark ? Colors.grey[800] : Colors.grey[200],
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: isDark ? Colors.grey[800] : Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            content.length > 50
+                                ? '${content.substring(0, 50)}...'
+                                : content,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+              ),
+            );
+          }, childCount: _userPosts.length),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildStatItem(
+    String value,
+    String label,
+    bool isDark, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.textMain,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

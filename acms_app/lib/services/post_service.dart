@@ -81,12 +81,183 @@ class PostService {
     }
   }
 
-  Future<Map<String, dynamic>> likePost(int postId) async {
+  /// Get posts for a specific user
+  Future<Map<String, dynamic>> getUserPosts(
+    int userId, {
+    int page = 1,
+    int size = 20,
+  }) async {
+    try {
+      final response = await _client.dio.get(
+        '/posts/user/$userId',
+        queryParameters: {'page': page, 'size': size},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch user posts';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get current user's published posts
+  Future<Map<String, dynamic>> getMyPosts({int page = 1, int size = 20}) async {
+    try {
+      final response = await _client.dio.get(
+        '/posts/my',
+        queryParameters: {'page': page, 'size': size},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch my posts';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Toggle like on a post. Returns { is_liked, likes_count, message }
+  Future<Map<String, dynamic>> toggleLike(int postId) async {
     try {
       final response = await _client.dio.post('/posts/$postId/like');
       return response.data;
     } on DioException catch (e) {
-      throw e.response?.data['detail'] ?? 'Failed to like post';
+      throw e.response?.data['detail'] ?? 'Failed to toggle like';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get users who liked a post
+  Future<Map<String, dynamic>> getPostLikes(
+    int postId, {
+    int skip = 0,
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _client.dio.get(
+        '/posts/$postId/likes',
+        queryParameters: {'skip': skip, 'limit': limit},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch likes';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  // ============== Comment Methods ==============
+
+  /// Get comments for a post
+  Future<Map<String, dynamic>> getComments(
+    int postId, {
+    int skip = 0,
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _client.dio.get(
+        '/posts/$postId/comments',
+        queryParameters: {'skip': skip, 'limit': limit},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch comments';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Add a comment to a post
+  Future<Map<String, dynamic>> addComment(int postId, String content) async {
+    try {
+      final response = await _client.dio.post(
+        '/posts/$postId/comments',
+        data: {'content': content},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to add comment';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Delete a comment
+  Future<void> deleteComment(int commentId) async {
+    try {
+      await _client.dio.delete('/posts/comments/$commentId');
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to delete comment';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  // ============== Share Methods ==============
+
+  /// Get shareable link for a post
+  Future<Map<String, dynamic>> getShareLink(int postId) async {
+    try {
+      final response = await _client.dio.get('/posts/$postId/share-link');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to get share link';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get post by share token (for deep links)
+  Future<Map<String, dynamic>> getPostByShareToken(String shareToken) async {
+    try {
+      final response = await _client.dio.get('/posts/shared/$shareToken');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch shared post';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  // ============== Saved Posts Methods ==============
+
+  /// Save a post to user's collection
+  Future<Map<String, dynamic>> savePost(int postId) async {
+    try {
+      final response = await _client.dio.post('/posts/saved/$postId');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to save post';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Remove a post from user's saved collection
+  Future<Map<String, dynamic>> unsavePost(int postId) async {
+    try {
+      final response = await _client.dio.delete('/posts/saved/$postId');
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to unsave post';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
+
+  /// Get all saved posts with pagination
+  Future<Map<String, dynamic>> getSavedPosts({
+    int page = 1,
+    int size = 20,
+  }) async {
+    try {
+      final response = await _client.dio.get(
+        '/posts/saved',
+        queryParameters: {'page': page, 'size': size},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to fetch saved posts';
     } catch (e) {
       throw 'An unexpected error occurred';
     }
