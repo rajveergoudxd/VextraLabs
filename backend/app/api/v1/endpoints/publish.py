@@ -128,6 +128,13 @@ async def publish_content(
                 "success": False,
                 "error": str(e)
             }
+            
+    # Update post platforms with successful publish details (IDs, URLs)
+    successful_platforms = {k: v for k, v in results.items() if v.get("success")}
+    # Update the JSON column with the dictionary of successful platforms and their metadata
+    internal_post.platforms = successful_platforms
+    db.add(internal_post)
+    db.commit()
     
     return PublishResponse(
         success=success_count > 0,

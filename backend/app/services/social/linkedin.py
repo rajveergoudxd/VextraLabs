@@ -268,3 +268,39 @@ class LinkedInService(BaseSocialService):
     async def revoke_access(self, access_token: str) -> bool:
         """LinkedIn doesn't have a revocation endpoint - just delete from our DB"""
         return True
+
+    async def check_post_exists(self, access_token: str, post_urn: str) -> bool:
+        """
+        Check if a post still exists on LinkedIn.
+        GET https://api.linkedin.com/rest/posts/{urn}
+        """
+        import httpx
+        from urllib.parse import quote
+        
+        encoded_urn = quote(post_urn)
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(
+                    f"https://api.linkedin.com/rest/posts/{encoded_urn}",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "LinkedIn-Version": self.API_VERSION,
+                        "X-Restli-Protocol-Version": "2.0.0",
+                    }
+                )
+                
+                # If 200, it exists. If 404, it's deleted.
+                if response.status_code == 200:
+                    # Also check lifecycleState if available, but existence is usually enough
+                    return True
+                elif response.status_code == 404:
+                    return False
+                else:
+                    # Other errors (auth, server), assume exists to avoid accidental hiding?
+                    # Or act safe and assume exists.
+                    # Logging would be good here.
+                    return True
+            except Exception:
+                # Network error, assume exists
+                return True

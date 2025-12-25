@@ -36,6 +36,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
 
+    // Only load data for supported platforms
+    if (_selectedPlatform != 'Inspire' && _selectedPlatform != 'LinkedIn') {
+      if (mounted) {
+        setState(() {
+          _userPosts = [];
+          _isLoadingPosts = false;
+        });
+      }
+      return;
+    }
+
     if (!silent) {
       setState(() {
         _isLoadingPosts = true;
@@ -44,7 +55,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final data = await _postService.getUserPosts(user.id);
+      // Pass 'LinkedIn' to filter, or null for 'Inspire' (showing all/default)
+      final platformFilter = _selectedPlatform == 'LinkedIn'
+          ? 'LinkedIn'
+          : null;
+      final data = await _postService.getUserPosts(
+        user.id,
+        platform: platformFilter,
+      );
       if (mounted) {
         setState(() {
           _userPosts = data['items'] as List;
@@ -80,13 +98,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: InteractiveViewer(
               minScale: 0.5,
               maxScale: 4.0,
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain,
-                placeholder: (context, url) =>
-                    const CircularProgressIndicator(),
-                errorWidget: (context, url, error) =>
-                    const Icon(Icons.error, color: Colors.white),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.8,
+                height: MediaQuery.of(context).size.width * 0.8,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                child: ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) =>
+                        const CircularProgressIndicator(),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.error, color: Colors.white),
+                  ),
+                ),
               ),
             ),
           ),
@@ -328,16 +353,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 8),
                     _buildPlatformChip(
-                      'Instagram',
-                      FontAwesomeIcons.instagram,
-                      _selectedPlatform == 'Instagram',
+                      'LinkedIn',
+                      FontAwesomeIcons.linkedin,
+                      _selectedPlatform == 'LinkedIn',
                       isDark,
                     ),
                     const SizedBox(width: 8),
                     _buildPlatformChip(
-                      'LinkedIn',
-                      FontAwesomeIcons.linkedin,
-                      _selectedPlatform == 'LinkedIn',
+                      'Instagram',
+                      FontAwesomeIcons.instagram,
+                      _selectedPlatform == 'Instagram',
                       isDark,
                     ),
                     const SizedBox(width: 8),
@@ -360,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ), // End of SliverPersistentHeader
           // Grid Content for Inspire section
-          if (_selectedPlatform == 'Inspire')
+          if (_selectedPlatform == 'Inspire' || _selectedPlatform == 'LinkedIn')
             ..._buildInspireGrid(isDark)
           else if (user?.postsCount == 0 || user?.postsCount == null) ...[
             SliverToBoxAdapter(
@@ -677,9 +702,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     return GestureDetector(
       onTap: () {
+        if (_selectedPlatform == label) return;
         setState(() {
           _selectedPlatform = label;
         });
+        _loadUserPosts();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

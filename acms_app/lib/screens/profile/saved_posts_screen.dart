@@ -182,114 +182,127 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     final mediaUrls = post['media_urls'] as List?;
     final hasMedia = mediaUrls != null && mediaUrls.isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: user?['profile_picture'] != null
-                      ? CachedNetworkImageProvider(user!['profile_picture'])
-                      : null,
-                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                  child: user?['profile_picture'] == null
-                      ? Icon(
-                          Icons.person,
-                          color: isDark ? Colors.grey[600] : Colors.grey[400],
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?['full_name'] ?? user?['username'] ?? 'User',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      if (user?['username'] != null)
+    return GestureDetector(
+      onTap: () {
+        context.push('/post-detail', extra: post);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: user?['profile_picture'] != null
+                        ? CachedNetworkImageProvider(user!['profile_picture'])
+                        : null,
+                    backgroundColor: isDark
+                        ? Colors.grey[800]
+                        : Colors.grey[200],
+                    child: user?['profile_picture'] == null
+                        ? Icon(
+                            Icons.person,
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          '@${user!['username']}',
+                          user?['full_name'] ?? user?['username'] ?? 'User',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.grey[500] : Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
-                    ],
+                        if (user?['username'] != null)
+                          Text(
+                            '@${user!['username']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey[500]
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.bookmark,
-                    color: isDark ? Colors.white : Colors.grey[900],
+                  IconButton(
+                    icon: Icon(
+                      Icons.bookmark,
+                      color: isDark ? Colors.white : Colors.grey[900],
+                    ),
+                    onPressed: () {
+                      _unsavePost(post['id']);
+                    },
                   ),
-                  onPressed: () {
-                    _unsavePost(post['id']);
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          if (post['content'] != null && (post['content'] as String).isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                post['content'],
-                style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontSize: 14,
-                ),
+                ],
               ),
             ),
 
-          // Media
-          if (hasMedia)
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-              child: CachedNetworkImage(
-                imageUrl: mediaUrls[0],
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 200,
-                  color: isDark ? Colors.grey[800] : Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator()),
+            // Content
+            if (post['content'] != null &&
+                (post['content'] as String).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                errorWidget: (context, url, error) => Container(
-                  height: 200,
-                  color: isDark ? Colors.grey[800] : Colors.grey[200],
-                  child: const Icon(Icons.error),
+                child: Text(
+                  post['content'],
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            ),
-        ],
+
+            // Media
+            if (hasMedia)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                child: CachedNetworkImage(
+                  imageUrl: mediaUrls[0],
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    height: 200,
+                    color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    height: 200,
+                    color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    child: const Icon(Icons.error),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

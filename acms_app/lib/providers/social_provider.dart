@@ -247,13 +247,16 @@ class SocialProvider extends ChangeNotifier {
   }
 
   /// Load posts for a specific user
-  Future<void> loadUserPosts(int userId) async {
+  Future<void> loadUserPosts(int userId, {String? platform}) async {
     _isLoadingUserPosts = true;
     _userPostsError = null;
     notifyListeners();
 
     try {
-      final response = await _socialService.getUserPosts(userId);
+      final response = await _socialService.getUserPosts(
+        userId,
+        platform: platform,
+      );
       _userPosts = List<Map<String, dynamic>>.from(response['items']);
       _userPostsTotal = response['total'] ?? 0;
     } catch (e) {

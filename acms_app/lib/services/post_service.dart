@@ -86,11 +86,17 @@ class PostService {
     int userId, {
     int page = 1,
     int size = 20,
+    String? platform,
   }) async {
     try {
+      final queryParams = <String, dynamic>{'page': page, 'size': size};
+      if (platform != null) {
+        queryParams['platform'] = platform;
+      }
+
       final response = await _client.dio.get(
         '/posts/user/$userId',
-        queryParameters: {'page': page, 'size': size},
+        queryParameters: queryParams,
       );
       return response.data;
     } on DioException catch (e) {

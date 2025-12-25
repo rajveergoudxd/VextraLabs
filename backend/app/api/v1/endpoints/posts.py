@@ -16,6 +16,9 @@ from app.schemas import like as like_schema
 from app.schemas import comment as comment_schema
 from app.crud.crud_saved_post import saved_post as saved_post_crud
 from app.core import security
+from app.core.encryption import decrypt_token
+from app.models.social_connection import SocialConnection
+from app.services.social.linkedin import LinkedInService
 
 router = APIRouter()
 
@@ -124,12 +127,13 @@ def get_feed(
 
 
 @router.get("/user/{user_id}", response_model=post_schema.PostFeed)
-def get_user_posts(
+async def get_user_posts(
     user_id: int,
     db: Session = Depends(deps.get_db),
     page: int = 1,
     size: int = 20,
     current_user: Optional[User] = Depends(deps.get_current_active_user),
+    platform: Optional[str] = None,
 ) -> Any:
     """
     Get posts for a specific user.
@@ -137,21 +141,74 @@ def get_user_posts(
     skip = (page - 1) * size
     
     # Get non-draft posts by the specified user
-    total = db.query(Post).filter(
+    query = db.query(Post).filter(
         Post.user_id == user_id,
         Post.is_draft == False
-    ).count()
+    )
     
-    posts = db.query(Post).filter(
-        Post.user_id == user_id,
-        Post.is_draft == False
-    ).order_by(desc(Post.created_at)).offset(skip).limit(size).all()
+    # Filter by platform if provided
+    if platform:
+        # Cast JSON to string for simpler LIKE query
+        from sqlalchemy import String, cast
+        query = query.filter(cast(Post.platforms, String).like(f'%"{platform}"%'))
     
+    # Execute query (sync blocking)
+    total = query.count()
+    posts = query.order_by(desc(Post.created_at)).offset(skip).limit(size).all()
+    
+    # If platform is LinkedIn, we need to verify post status
+    valid_posts = []
+    if platform == 'LinkedIn':
+        # Get LinkedIn connection
+        connection = db.query(SocialConnection).filter(
+            SocialConnection.user_id == user_id,
+            SocialConnection.platform == 'linkedin'
+        ).first()
+
+        linkedin_service = LinkedInService()
+        
+        for p in posts:
+            is_valid = True
+            # Check if we have an external ID for this platform
+            # platforms can be a list (old data) or dict (new data)
+            platform_data = p.platforms
+            if isinstance(platform_data, dict) and 'linkedin' in platform_data:
+                # New data format with metadata
+                meta = platform_data['linkedin']
+                if isinstance(meta, dict) and 'post_id' in meta:
+                    post_urn = meta['post_id']
+                    
+                    # Verify existence if we have a valid token
+                    if connection and connection.access_token:
+                        try:
+                            token = decrypt_token(connection.access_token)
+                            exists = await linkedin_service.check_post_exists(token, post_urn)
+                            
+                            if not exists:
+                                is_valid = False
+                                # Update DB: remove linkedin from platforms
+                                # If it's the only platform, maybe delete post? 
+                                # For now, just remove key to hide from LinkedIn tab
+                                del platform_data['linkedin']
+                                p.platforms = platform_data
+                                db.add(p)
+                                # Don't commit inside loop optimally, but for user safety/simplicity:
+                                db.commit() 
+                        except Exception:
+                            # If check fails (network/auth), assume valid to show user
+                            pass
+            
+            if is_valid:
+                valid_posts.append(p)
+        
+        # Update total count approximate
+        posts = valid_posts
+        
     post_list = [_build_post_response(p, current_user, db) for p in posts]
     
     return {
         "items": post_list,
-        "total": total,
+        "total": total, # Note: Total might be slightly off if we filtered items, but acceptable
         "page": page,
         "size": size,
         "has_more": (skip + size) < total

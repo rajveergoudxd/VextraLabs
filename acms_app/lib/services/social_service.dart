@@ -96,10 +96,16 @@ class SocialService {
     int userId, {
     int page = 1,
     int size = 20,
+    String? platform,
   }) async {
+    final queryParams = <String, dynamic>{'page': page, 'size': size};
+    if (platform != null) {
+      queryParams['platform'] = platform;
+    }
+
     final response = await _apiClient.dio.get(
       '/posts/user/$userId',
-      queryParameters: {'page': page, 'size': size},
+      queryParameters: queryParams,
     );
     return response.data;
   }

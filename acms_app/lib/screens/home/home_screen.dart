@@ -554,9 +554,7 @@ class _HomeViewState extends State<HomeView> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            if (post['share_token'] != null) {
-              context.push('/inspire/post/${post['share_token']}');
-            }
+            context.push('/post-detail', extra: post);
           },
           child: Padding(
             padding: const EdgeInsets.all(12),
