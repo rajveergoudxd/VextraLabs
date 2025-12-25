@@ -79,7 +79,8 @@ class AgentProvider extends ChangeNotifier {
 
       _tts.setCompletionHandler(() {
         if (_state == AgentState.speaking) {
-          _setState(AgentState.idle);
+          // Auto-listen after agent finishes speaking to create conversational flow
+          startListening();
         }
       });
 
@@ -214,8 +215,11 @@ class AgentProvider extends ChangeNotifier {
       case 'create_post':
         final content = action.parameters['content'] as String?;
         final platforms = action.parameters['platforms'] as List<dynamic>?;
-        if (content != null) {
-          final creation = context.read<CreationProvider>();
+
+        final creation = context.read<CreationProvider>();
+
+        if (content != null && content.isNotEmpty) {
+          // We have specific content, set it and go to review
           creation.setCaption('inspire', content);
           if (platforms != null) {
             for (final p in platforms) {
@@ -223,6 +227,9 @@ class AgentProvider extends ChangeNotifier {
             }
           }
           router.go('/create/review');
+        } else {
+          // No content specified, just open the creation flow
+          router.go('/create/write-text');
         }
         break;
 
@@ -485,8 +492,10 @@ class AgentProvider extends ChangeNotifier {
   /// Stop TTS if speaking
   Future<void> stopSpeaking() async {
     if (_state == AgentState.speaking) {
+      // Set to idle FIRST to prevent completion handler from restarting listening
+      _state = AgentState.idle;
+      notifyListeners();
       await _tts.stop();
-      _setState(AgentState.idle);
     }
   }
 

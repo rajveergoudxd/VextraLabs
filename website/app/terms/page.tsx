@@ -2,7 +2,6 @@
 
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
-import { AnimatedSection } from '@/components/Animations'
 import { brand } from '@/lib/site-config'
 
 export default function TermsOfServicePage() {
@@ -24,7 +23,7 @@ export default function TermsOfServicePage() {
                     </div>
                 </div>
 
-                <AnimatedSection className="legal-content">
+                <div className="legal-content">
                     <div className="container legal-container">
                         <nav className="legal-toc">
                             <h3>Contents</h3>
@@ -396,7 +395,7 @@ export default function TermsOfServicePage() {
                             </section>
                         </article>
                     </div>
-                </AnimatedSection>
+                </div>
             </main>
             <Footer />
         </>
