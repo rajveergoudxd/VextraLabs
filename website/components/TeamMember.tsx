@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Image from 'next/image'
 
 interface TeamMemberProps {
     name: string
     role: string
     linkedin?: string
+    image?: string
 }
 
-export function TeamMember({ name, role, linkedin }: TeamMemberProps) {
+export function TeamMember({ name, role, linkedin, image }: TeamMemberProps) {
     const cardRef = useRef<HTMLDivElement>(null)
 
     const initials = name
@@ -55,9 +57,20 @@ export function TeamMember({ name, role, linkedin }: TeamMemberProps) {
 
             {/* Glowing ring */}
             <div className="team-avatar-ring">
-                <div className="team-avatar">
+                <div className={`team-avatar ${image ? 'has-image' : ''}`}>
                     <div className="avatar-glow"></div>
-                    <span>{initials}</span>
+                    {image ? (
+                        <Image
+                            src={image}
+                            alt={name}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            className="team-avatar-image"
+                            sizes="80px"
+                        />
+                    ) : (
+                        <span>{initials}</span>
+                    )}
                 </div>
             </div>
 

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     THREADS_APP_SECRET: str = ""
     THREADS_REDIRECT_URI: str = ""
 
+    # AI Agent - Groq
+    GROQ_API_KEY: str = ""
+
     # Ignore extra environment variables to prevent validation errors
     model_config = SettingsConfigDict(
         env_file=".env", 

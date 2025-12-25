@@ -1691,6 +1691,27 @@ section {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
+/* Team Avatar Image */
+.team-avatar.has-image {
+  overflow: hidden;
+  background: transparent;
+}
+
+.team-avatar-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.team-avatar.has-image .avatar-glow {
+  opacity: 0.3;
+}
+
 /* Team Info */
 .team-member-card .team-info {
   position: relative;

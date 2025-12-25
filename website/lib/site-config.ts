@@ -26,8 +26,8 @@ export const navigation = {
     ],
     cta: {
         label: 'Download App',
-        href: '/app-arm64-v8a-release.apk',
-        download: true,
+        href: '/#download',
+        download: false,
     },
 } as const;
 
@@ -207,11 +207,13 @@ export const team = {
             name: 'Rajveer Goud',
             role: 'Lead Developer',
             linkedin: 'https://linkedin.com/in/rajveergoud',
+            image: '/rajveer.jpeg',
         },
         {
             name: 'Nitin Patel',
             role: 'Developer',
             linkedin: 'https://linkedin.com/in/nitinpatel',
+            image: '/nitin.png',
         },
         {
             name: 'Ayush Nagre',

@@ -13,6 +13,7 @@ import 'package:acms_app/providers/notification_provider.dart';
 import 'package:acms_app/providers/presence_provider.dart';
 import 'package:acms_app/providers/inspire_provider.dart';
 import 'package:acms_app/providers/saved_posts_provider.dart';
+import 'package:acms_app/providers/agent_provider.dart';
 
 // Screens
 import 'package:acms_app/screens/welcome_screen.dart';
@@ -101,6 +102,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PresenceProvider()),
         ChangeNotifierProvider(create: (_) => InspireProvider()),
         ChangeNotifierProvider(create: (_) => SavedPostsProvider()),
+        ChangeNotifierProvider(create: (_) => AgentProvider()),
       ],
 
       child: const AcmsApp(),

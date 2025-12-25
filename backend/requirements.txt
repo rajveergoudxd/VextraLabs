@@ -18,3 +18,4 @@ cryptography
 websockets
 tenacity
 firebase-admin
+groq

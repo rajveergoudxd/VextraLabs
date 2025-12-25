@@ -266,6 +266,7 @@ export default function HomePage() {
                                     name={member.name}
                                     role={member.role}
                                     linkedin={member.linkedin}
+                                    image={'image' in member ? member.image : undefined}
                                 />
                             </AnimatedCard>
                         ))}
