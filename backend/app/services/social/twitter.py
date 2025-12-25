@@ -39,7 +39,7 @@ class TwitterService(BaseSocialService):
         
         # Helper for strict RFC 3986 encoding
         def percent_encode(s: str) -> str:
-            return quote(str(s), safe='')
+            return quote(str(s), safe='~')
             
         oauth_params = {
             "oauth_consumer_key": settings.TWITTER_API_KEY,
@@ -103,8 +103,8 @@ class TwitterService(BaseSocialService):
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url, 
-                headers={"Authorization": header},
-                params=params
+                headers={"Authorization": header}
+                # Do not pass params=params, as oauth_callback is already in the header
             )
             
             if response.status_code != 200:
