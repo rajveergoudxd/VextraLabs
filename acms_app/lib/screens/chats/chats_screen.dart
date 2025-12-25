@@ -7,6 +7,7 @@ import 'package:acms_app/providers/chat_provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/presence_provider.dart';
 import 'package:acms_app/widgets/online_users_bar.dart';
+import 'package:acms_app/services/presence_service.dart';
 
 /// Main chats screen showing conversation list (Instagram-style)
 class ChatsScreen extends StatefulWidget {
@@ -38,14 +39,32 @@ class _ChatsScreenState extends State<ChatsScreen> {
         children: [
           _buildHeader(isDark),
           // Online users section
-          Consumer<PresenceProvider>(
-            builder: (context, presenceProvider, _) {
-              if (presenceProvider.onlineFollowing.isEmpty) {
+          Consumer2<PresenceProvider, AuthProvider>(
+            builder: (context, presenceProvider, authProvider, _) {
+              final currentUser = authProvider.user;
+              final onlineFollowing = presenceProvider.onlineFollowing;
+
+              final List<OnlineUser> displayUsers = [];
+
+              // Always add self first
+              if (currentUser != null) {
+                displayUsers.add(
+                  OnlineUser(
+                    id: currentUser.id,
+                    username: currentUser.username,
+                    fullName: currentUser.fullName,
+                    profilePicture: currentUser.profilePicture,
+                  ),
+                );
+              }
+
+              displayUsers.addAll(onlineFollowing);
+
+              if (displayUsers.isEmpty) {
                 return const SizedBox.shrink();
               }
-              return OnlineUsersBar(
-                onlineUsers: presenceProvider.onlineFollowing,
-              );
+
+              return OnlineUsersBar(onlineUsers: displayUsers);
             },
           ),
           Expanded(

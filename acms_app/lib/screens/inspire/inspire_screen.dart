@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/inspire_provider.dart';
+import 'package:acms_app/providers/notification_provider.dart';
 import 'package:acms_app/widgets/comment_bottom_sheet.dart';
 import 'package:acms_app/widgets/share_bottom_sheet.dart';
 
@@ -30,6 +31,10 @@ class _InspireScreenState extends State<InspireScreen> {
     // Initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<InspireProvider>(context, listen: false).loadFeed();
+      Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      ).updateUnreadCount();
     });
 
     // Infinite scroll listener
@@ -152,22 +157,29 @@ class _InspireScreenState extends State<InspireScreen> {
                             backgroundColor: Colors.transparent,
                           ),
                         ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark
-                                    ? AppColors.backgroundDark
-                                    : AppColors.surfaceLight,
+                        Consumer<NotificationProvider>(
+                          builder: (context, notifProvider, _) {
+                            if (notifProvider.unreadCount == 0) {
+                              return const SizedBox.shrink();
+                            }
+                            return Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isDark
+                                        ? AppColors.backgroundDark
+                                        : AppColors.surfaceLight,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ],
                     ),

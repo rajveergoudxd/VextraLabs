@@ -385,6 +385,19 @@ class CreationProvider extends ChangeNotifier {
     }
   }
 
+  /// Delete a published post
+  Future<bool> deletePost(int postId) async {
+    try {
+      await _postService.deletePost(postId);
+      _myPosts.removeWhere((p) => p['id'] == postId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error deleting post: $e');
+      return false;
+    }
+  }
+
   // --- Advanced Editing Methods ---
 
   EditState getEditState(String url) {

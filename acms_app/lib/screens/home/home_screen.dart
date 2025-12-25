@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/creation_provider.dart';
+import 'package:acms_app/providers/notification_provider.dart';
 
 // Shell Scafold for Persistent Bottom Navigation
 class MainScaffold extends StatelessWidget {
@@ -169,6 +171,7 @@ class _HomeViewState extends State<HomeView> {
     // Load drafts and posts when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CreationProvider>().loadRecentActivity();
+      context.read<NotificationProvider>().updateUnreadCount();
     });
   }
 
@@ -219,22 +222,29 @@ class _HomeViewState extends State<HomeView> {
                         backgroundColor: Colors.transparent,
                       ),
                     ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.backgroundDark
-                                : AppColors.backgroundLight,
+                    Consumer<NotificationProvider>(
+                      builder: (context, notifProvider, _) {
+                        if (notifProvider.unreadCount == 0) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark
+                                    ? AppColors.backgroundDark
+                                    : AppColors.backgroundLight,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -595,6 +605,7 @@ class _HomeViewState extends State<HomeView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -614,7 +625,6 @@ class _HomeViewState extends State<HomeView> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           if (createdAt != null)
                             Text(
                               _formatTimeAgo(createdAt),
@@ -642,32 +652,53 @@ class _HomeViewState extends State<HomeView> {
                       ),
                       const SizedBox(height: 6),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(
-                            Icons.favorite_border,
-                            size: 14,
-                            color: Colors.grey[400],
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.favorite_border,
+                                size: 14,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$likesCount',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: 14,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$commentsCount',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$likesCount',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[400],
+                          InkWell(
+                            onTap: () => _showDeleteConfirmation(
+                              context,
+                              isPost: true,
+                              id: post['id'],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 14,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$commentsCount',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[400],
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           ),
                         ],
@@ -813,7 +844,11 @@ class _HomeViewState extends State<HomeView> {
                     _buildSmallActionButton(
                       icon: Icons.delete_outline,
                       color: Colors.grey[400]!,
-                      onTap: () => _deleteDraft(draft, provider),
+                      onTap: () => _showDeleteConfirmation(
+                        context,
+                        isPost: false,
+                        id: draft.id,
+                      ),
                       tooltip: 'Delete',
                     ),
                   ],
@@ -853,28 +888,56 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  void _deleteDraft(Draft draft, CreationProvider provider) async {
-    final confirmed = await showDialog<bool>(
+  void _showDeleteConfirmation(
+    BuildContext context, {
+    required bool isPost,
+    required int id,
+  }) {
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Draft?'),
-        content: const Text('This action cannot be undone.'),
+        title: Text(isPost ? 'Delete Post' : 'Delete Draft'),
+        content: Text(
+          isPost
+              ? 'Are you sure you want to delete this post? This action cannot be undone.'
+              : 'Are you sure you want to delete this draft?',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+
+              final provider = context.read<CreationProvider>();
+              bool success;
+
+              if (isPost) {
+                success = await provider.deletePost(id);
+              } else {
+                success = await provider.deleteDraft(id);
+              }
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? (isPost ? 'Post deleted' : 'Draft deleted')
+                          : 'Failed to delete',
+                    ),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+            },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-
-    if (confirmed == true) {
-      await provider.deleteDraft(draft.id);
-    }
   }
 
   String _formatTimeAgo(DateTime date) {
