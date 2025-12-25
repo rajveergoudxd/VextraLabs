@@ -33,8 +33,8 @@ class PostInDBBase(PostBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
-    likes_count: int = 0
-    comments_count: int = 0
+    likes_count: Optional[int] = 0
+    comments_count: Optional[int] = 0
 
     class Config:
         from_attributes = True

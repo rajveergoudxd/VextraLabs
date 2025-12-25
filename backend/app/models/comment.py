@@ -30,7 +30,7 @@ class Comment(Base):
 
     # Relationships
     user = relationship("User", backref="comments")
-    post = relationship("Post", backref="comments")
+    post = relationship("Post", back_populates="comments")
 
     # Indexes for performance
     __table_args__ = (

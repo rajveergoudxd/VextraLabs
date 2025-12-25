@@ -30,7 +30,7 @@ class Like(Base):
 
     # Relationships
     user = relationship("User", backref="likes")
-    post = relationship("Post", backref="likes")
+    post = relationship("Post", back_populates="likes")
 
     # Ensure a user can only like a post once
     __table_args__ = (
