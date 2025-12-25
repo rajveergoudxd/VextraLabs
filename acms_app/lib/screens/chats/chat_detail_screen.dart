@@ -30,9 +30,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // Store provider reference for safe disposal
   ChatProvider? _chatProvider;
 
+  // Typing indicator keep-alive
+  final FocusNode _focusNode = FocusNode();
+  Timer? _typingKeepAliveTimer;
+
   @override
   void initState() {
     super.initState();
+    _focusNode.addListener(_onFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatProvider>().enterChat(widget.conversationId);
     });
@@ -52,7 +57,44 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _chatProvider?.leaveChat();
     _messageController.dispose();
     _scrollController.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _typingKeepAliveTimer?.cancel();
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    final chatProvider = context.read<ChatProvider>();
+
+    if (_focusNode.hasFocus) {
+      // User focused input - send typing and start keep-alive
+      chatProvider.sendTyping(true);
+      _typingKeepAliveTimer?.cancel();
+      _typingKeepAliveTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (mounted && _focusNode.hasFocus) {
+          chatProvider.sendTyping(true);
+        }
+      });
+    } else {
+      // User unfocused - stop typing immediately
+      _typingKeepAliveTimer?.cancel();
+      chatProvider.sendTyping(false);
+    }
+  }
+
+  void _checkAndMarkRead(List<ChatMessage> messages, int currentUserId) {
+    if (messages.isEmpty) return;
+
+    // Find unread messages from others
+    final unreadIds = messages
+        .where((m) => m.senderId != currentUserId && !m.isRead)
+        .map((m) => m.id)
+        .toList();
+
+    if (unreadIds.isNotEmpty) {
+      // Mark as read immediately
+      context.read<ChatProvider>().markMessagesAsRead(unreadIds);
+    }
   }
 
   void _scrollToBottom() {
@@ -66,18 +108,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _onTextChanged(String text) {
-    final chatProvider = context.read<ChatProvider>();
-
-    // Send typing indicator
-    chatProvider.sendTyping(true);
-
-    // Cancel previous timer
-    _typingTimer?.cancel();
-
-    // Set new timer to stop typing
-    _typingTimer = Timer(const Duration(seconds: 2), () {
-      chatProvider.sendTyping(false);
-    });
+    // We handle typing primarily via focus now,
+    // but we can still ensure typing is true when text changes
+    if (_typingKeepAliveTimer == null || !_typingKeepAliveTimer!.isActive) {
+      final chatProvider = context.read<ChatProvider>();
+      chatProvider.sendTyping(true);
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -341,6 +377,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         final message = messages[index];
         final isMe = message.senderId == currentUserId;
 
+        // Check for read status update on build
+        if (index == messages.length - 1) {
+          // If we're rendering the last message, check all messages for unread status
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _checkAndMarkRead(messages, currentUserId);
+          });
+        }
+
         // Check if we should show date separator
         bool showDateSeparator = false;
         if (index == 0) {
@@ -500,6 +544,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   Expanded(
                     child: TextField(
                       controller: _messageController,
+                      focusNode: _focusNode,
                       onChanged: _onTextChanged,
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
