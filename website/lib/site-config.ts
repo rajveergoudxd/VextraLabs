@@ -205,30 +205,32 @@ export const team = {
     members: [
         {
             name: 'Rajveer Goud',
-            role: 'Lead Developer',
-            linkedin: 'https://linkedin.com/in/rajveergoud',
+            role: 'Lead Researcher and Developer',
+            linkedin: 'https://www.linkedin.com/in/rajveer-goud/',
             image: '/rajveer.jpeg',
         },
         {
-            name: 'Nitin Patel',
-            role: 'Developer',
-            linkedin: 'https://linkedin.com/in/nitinpatel',
-            image: '/nitin.png',
+            name: 'Ayush Nagre',
+            role: 'Researcher & Developer',
+            linkedin: 'https://www.linkedin.com/in/ayush-nagre-37b204223/',
+            image: '/Aayush.jpg',
         },
         {
-            name: 'Ayush Nagre',
+            name: 'Pankaj Bairagi',
+            role: 'Designer and Developer',
+            linkedin: 'https://www.linkedin.com/in/pankaj-bairagi/',
+            image: '/Pankaj.jpeg',
+        },
+        {
+            name: 'Nitin Rudaydiya',
             role: 'Developer',
-            linkedin: 'https://linkedin.com/in/ayushnagre',
+            linkedin: 'https://www.linkedin.com/in/nitinrudaydiya/',
+            image: '/nitin.png',
         },
         {
             name: 'Shivani Gupta',
             role: 'Developer',
-            linkedin: 'https://linkedin.com/in/shivanigupta',
-        },
-        {
-            name: 'Pankaj Bairagi',
-            role: 'Developer',
-            linkedin: 'https://linkedin.com/in/pankajbairagi',
+            linkedin: 'https://www.linkedin.com/in/shivanigupta2620/',
         },
     ],
 } as const;
