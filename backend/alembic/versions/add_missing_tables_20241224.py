@@ -25,9 +25,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def table_exists(table_name: str) -> bool:
     """Check if a table exists in the database."""
-    conn = op.get_bind()
-    inspector = inspect(conn)
-    return table_name in inspector.get_table_names()
+    try:
+        conn = op.get_bind()
+        inspector = inspect(conn)
+        return table_name in inspector.get_table_names()
+    except (sa.exc.NoInspectionAvailable, NameError):
+        return False
 
 
 def upgrade() -> None:

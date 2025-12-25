@@ -21,8 +21,12 @@ def upgrade() -> None:
     # We use nullable=True for all to avoid issues with existing rows
     conn = op.get_bind()
     from sqlalchemy import inspect
-    inspector = inspect(conn)
-    columns = [c['name'] for c in inspector.get_columns('users')]
+    try:
+        inspector = inspect(conn)
+        columns = [c['name'] for c in inspector.get_columns('users')]
+    except (sa.exc.NoInspectionAvailable, NameError):
+        # Offline mode: assume no columns exist so we generate add_column statements
+        columns = []
     
     if 'username' not in columns:
         op.add_column('users', sa.Column('username', sa.String(), nullable=True))
