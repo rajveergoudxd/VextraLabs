@@ -199,9 +199,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: settingsProvider.isLoading
                             ? null
                             : (value) async {
-                                await settingsProvider.updatePushNotifications(
-                                  value,
-                                );
+                                final success = await settingsProvider
+                                    .updatePushNotifications(value);
+                                if (!success && context.mounted) {
+                                  // Show error if update failed (permission denied or network error)
+                                  if (settingsProvider.error != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(settingsProvider.error!),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
                         // ignore: deprecated_member_use
                         activeColor: Colors.white,

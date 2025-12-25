@@ -83,6 +83,8 @@ class SettingsProvider extends ChangeNotifier {
         final granted = await _pushService.requestPermission();
         if (!granted) {
           // Permission denied, don't update settings
+          _error =
+              'Permission denied. Please enable notifications in system settings.';
           _isLoading = false;
           notifyListeners();
           return false;
