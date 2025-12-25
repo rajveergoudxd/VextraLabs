@@ -34,7 +34,11 @@ class _FollowListScreenState extends State<FollowListScreen>
       initialIndex: widget.initialTab == 'following' ? 1 : 0,
     );
     _tabController.addListener(_onTabChanged);
-    _loadInitialData();
+
+    // Defer data loading to after build to avoid provider build errors
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   void _loadInitialData() {
