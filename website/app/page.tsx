@@ -6,6 +6,7 @@ import { TeamMember } from '@/components/TeamMember'
 import { FAQSection } from '@/components/FAQSection'
 import { AppShowcase } from '@/components/AppShowcase'
 import { HeroPhone } from '@/components/HeroPhone'
+import { WhyChooseUsTree } from '@/components/WhyChooseUsTree'
 import {
     AnimatedSection,
     AnimatedCard,
@@ -195,36 +196,18 @@ export default function HomePage() {
                 </div>
             </AnimatedSection>
 
-            {/* Why Vextra */}
-            <AnimatedSection className="why-vextra" id="why">
-                <div className="container">
-                    <div className="why-content">
-                        <div className="section-header">
-                            <span className="section-tag animate-tag">Why Choose Us</span>
-                            <h2>
-                                {differentiators.title}<br />
-                                <span className="gradient-text animate-gradient">{differentiators.subtitle}</span>
-                            </h2>
-                        </div>
-                        <ul className="differentiators">
-                            {differentiators.items.map((item, index) => (
-                                <AnimatedCard key={index} delay={index * 150}>
-                                    <li className="differentiator-item">
-                                        <span className="check-circle animate-pop">
-                                            <span className="check">✓</span>
-                                        </span>
-                                        <div className="differentiator-content">
-                                            <strong>{item.title}</strong>
-                                            <p>{item.description}</p>
-                                        </div>
-                                        <div className="item-glow"></div>
-                                    </li>
-                                </AnimatedCard>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </AnimatedSection>
+            {/* Why Vextra - Horizontal Tree */}
+            <section id="why">
+                <WhyChooseUsTree
+                    items={differentiators.items.map(item => ({
+                        icon: item.icon,
+                        title: item.title,
+                        description: item.description
+                    }))}
+                    title={differentiators.title}
+                    subtitle={differentiators.subtitle}
+                />
+            </section>
 
             {/* Tech Section */}
             <AnimatedSection className="tech-section">

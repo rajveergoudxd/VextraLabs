@@ -143,20 +143,24 @@ export const differentiators = {
     subtitle: 'A new way of working.',
     items: [
         {
+            icon: '🔗',
             title: 'Unified Platform',
-            description: 'Stop stitching together disjointed tools. Vextra is all-in-one.',
+            description: 'Stop stitching together disjointed tools and losing precious time switching between apps. Vextra brings everything under one roof—create, manage, schedule, and publish from a single dashboard. Your content workflow, simplified.',
         },
         {
-            title: 'Mobile-First',
-            description: 'Creativity strikes anywhere. Vextra is built for your phone.',
+            icon: '📱',
+            title: 'Mobile-First Design',
+            description: 'Creativity strikes anywhere—on your commute, during lunch, or at midnight. Vextra is engineered from the ground up for mobile devices, giving you the full power of a desktop content studio in your pocket.',
         },
         {
-            title: 'Creator-Focused',
-            description: "We don't just build features; we build superpowers for creators.",
+            icon: '🎨',
+            title: 'Creator-Focused Experience',
+            description: "We don't just build features; we build superpowers for creators. Every interaction is designed to amplify your creative flow, not interrupt it. Beautiful interfaces, intuitive controls, zero learning curve.",
         },
         {
-            title: 'AI-Enhanced',
-            description: 'Let AI help you draft, refine, and optimize your content effortlessly.',
+            icon: '🤖',
+            title: 'AI-Enhanced Productivity',
+            description: 'Let artificial intelligence handle the heavy lifting. From generating captions and optimizing hashtags to suggesting posting times—our AI assistant helps you create better content faster, so you can focus on what matters.',
         },
     ],
 } as const;
