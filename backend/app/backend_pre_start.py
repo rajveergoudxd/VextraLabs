@@ -14,6 +14,9 @@ from app.models.conversation import Conversation, ConversationParticipant
 from app.models.message import Message
 from app.models.post import Post
 from app.models.notification import Notification
+from app.models.like import Like
+from app.models.comment import Comment
+from app.models.saved_post import SavedPost
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
