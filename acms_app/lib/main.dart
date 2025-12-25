@@ -56,6 +56,7 @@ import 'package:acms_app/screens/chats/chats_screen.dart';
 import 'package:acms_app/screens/chats/chat_detail_screen.dart';
 import 'package:acms_app/screens/chats/chat_share_screen.dart';
 import 'package:acms_app/screens/inspire/post_detail_screen.dart';
+import 'package:acms_app/screens/coming_soon_screen.dart';
 
 // Placeholder for tabs that don't exist yet
 class PlaceholderScreen extends StatelessWidget {
@@ -228,6 +229,13 @@ class AcmsApp extends StatelessWidget {
       GoRoute(
         path: '/onboarding/complete',
         builder: (context, state) => const SetupCompleteScreen(),
+      ),
+
+      // ---- Coming Soon (Full Screen) ----
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/coming-soon',
+        builder: (context, state) => const ComingSoonScreen(),
       ),
 
       // ---- Creation Flow (Full Screen, Hide Bottom Bar) ----

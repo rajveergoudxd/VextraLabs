@@ -280,7 +280,7 @@ class _HomeViewState extends State<HomeView> {
                         Expanded(
                           flex: 1,
                           child: InkWell(
-                            onTap: () => context.push('/create/select-mode'),
+                            onTap: () => context.push('/coming-soon'),
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),

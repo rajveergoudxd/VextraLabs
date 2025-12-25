@@ -1,6 +1,6 @@
 """
-Twitter/X API v2 integration for OAuth 2.0 and content publishing.
-Uses OAuth 2.0 with PKCE for user authentication.
+Twitter/X API v2 integration using OAuth 2.0 with PKCE.
+For Free tier access - supports text-only tweets via v2 API.
 """
 import httpx
 import base64
@@ -15,113 +15,60 @@ from .base import BaseSocialService
 
 
 class TwitterService(BaseSocialService):
-    """Twitter/X API integration using OAuth 1.0a (User Context)"""
+    """Twitter/X API v2 integration using OAuth 2.0 with PKCE (Free Tier)"""
     
     API_BASE = "https://api.twitter.com/2"
-    UPLOAD_BASE = "https://upload.twitter.com/1.1"
-    OAUTH_BASE = "https://api.twitter.com/oauth"
+    OAUTH_AUTHORIZE = "https://twitter.com/i/oauth2/authorize"
+    OAUTH_TOKEN = "https://api.twitter.com/2/oauth2/token"
+    
+    # Required scopes for posting
+    SCOPES = [
+        "tweet.read",
+        "tweet.write",
+        "users.read",
+        "offline.access",  # For refresh tokens
+    ]
     
     @property
     def platform_name(self) -> str:
         return "twitter"
-
-    def _get_oauth_header(
-        self, 
-        method: str, 
-        url: str, 
-        params: Dict[str, str],
-        access_token: Optional[str] = None,
-        access_token_secret: Optional[str] = None
-    ) -> str:
-        """Generate OAuth 1.0a Authorization header"""
-        import hmac, hashlib, time, uuid
-        from urllib.parse import quote
+    
+    def _generate_pkce_pair(self) -> tuple[str, str]:
+        """Generate PKCE code_verifier and code_challenge"""
+        # Generate a random code_verifier (43-128 characters)
+        code_verifier = secrets.token_urlsafe(32)
         
-        # Helper for strict RFC 3986 encoding
-        def percent_encode(s: str) -> str:
-            return quote(str(s), safe='~')
-            
-        oauth_params = {
-            "oauth_consumer_key": settings.TWITTER_API_KEY,
-            "oauth_nonce": uuid.uuid4().hex,
-            "oauth_signature_method": "HMAC-SHA1",
-            "oauth_timestamp": str(int(time.time())),
-            "oauth_version": "1.0",
-        }
+        # Generate code_challenge using SHA256
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode()).digest()
+        ).decode().rstrip("=")
         
-        if access_token:
-            oauth_params["oauth_token"] = access_token
-            
-        # Merge extra params for signature
-        all_params = {**oauth_params, **params}
-        
-        # Sort and encode
-        encoded_params = []
-        for k, v in sorted(all_params.items()):
-            encoded_params.append(f"{percent_encode(k)}={percent_encode(v)}")
-            
-        param_string = "&".join(encoded_params)
-        
-        # Base string
-        base_string = f"{method.upper()}&{percent_encode(url)}&{percent_encode(param_string)}"
-        
-        # Signing key
-        signing_key = f"{percent_encode(settings.TWITTER_API_KEY_SECRET)}&"
-        if access_token_secret:
-            signing_key += percent_encode(access_token_secret)
-            
-        # Calculate signature
-        signature = hmac.new(
-            signing_key.encode(),
-            base_string.encode(),
-            hashlib.sha1
-        ).digest()
-        
-        oauth_params["oauth_signature"] = base64.b64encode(signature).decode()
-        
-        # Header - Only include oauth_ params (plus realm if needed, but usually not)
-        # Note: If params contained 'oauth_callback', it SHOULD be in the header usually.
-        # So we merge params into header dict if they start with oauth_
-        header_params = oauth_params.copy()
-        for k, v in params.items():
-            if k.startswith("oauth_"):
-                header_params[k] = v
-        
-        header_parts = [f'{percent_encode(k)}="{percent_encode(v)}"' for k, v in sorted(header_params.items())]
-        return "OAuth " + ", ".join(header_parts)
+        return code_verifier, code_challenge
 
     async def get_authorization_url(self, state: str) -> Dict[str, Any]:
-        """Get Request Token and return Authorize URL"""
-        url = f"{self.OAUTH_BASE}/request_token"
+        """Generate OAuth 2.0 authorization URL with PKCE"""
+        code_verifier, code_challenge = self._generate_pkce_pair()
         
-        # Callback URL (from config)
-        callback = settings.TWITTER_REDIRECT_URI
-        params = {"oauth_callback": callback}
+        # Get credentials
+        client_id = str(settings.TWITTER_CLIENT_ID).strip().strip("'").strip('"')
+        redirect_uri = str(settings.TWITTER_REDIRECT_URI).strip().strip("'").strip('"')
         
-        header = self._get_oauth_header("POST", url, params)
+        params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": " ".join(self.SCOPES),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url, 
-                headers={
-                    "Authorization": header,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                }
-                # Do not pass params=params, as oauth_callback is already in the header
-            )
-            
-            if response.status_code != 200:
-                raise Exception(f"Failed to get request token: {response.text}")
-                
-            data = dict(x.split("=") for x in response.text.split("&"))
-            oauth_token = data["oauth_token"]
-            oauth_token_secret = data["oauth_token_secret"]
-            
-            return {
-                "url": f"{self.OAUTH_BASE}/authorize?oauth_token={oauth_token}",
-                "oauth_token": oauth_token,
-                "oauth_token_secret": oauth_token_secret
-            }
+        authorization_url = f"{self.OAUTH_AUTHORIZE}?{urlencode(params)}"
+        
+        return {
+            "url": authorization_url,
+            "code_verifier": code_verifier,  # Must be stored for token exchange
+        }
 
     async def exchange_code_for_token(
         self, 
@@ -129,62 +76,91 @@ class TwitterService(BaseSocialService):
         state: str,
         **kwargs
     ) -> Dict[str, Any]:
-        """
-        Exchange verifier for Access Token.
-        In OAuth 1.0a:
-        code -> oauth_verifier
-        state -> we expect 'oauth_token' and 'oauth_token_secret' inside state (handled by oauth.py)
-        But wait, OAUTH_STATES in oauth.py stores metadata. I need to store secret there.
-        """
-        oauth_verifier = kwargs.get("oauth_verifier") or code
-        oauth_token = kwargs.get("oauth_token")
+        """Exchange authorization code for access token"""
+        code_verifier = kwargs.get("code_verifier") or kwargs.get("request_secret")
         
-        # We need the temp secret. It should be passed in via kwargs or state logic?
-        # oauth.py doesn't pass secret. I need to modify oauth.py to store/retrieve it.
-        # For now let's assume I modify oauth.py to pass 'oauth_token_secret' if it's there.
-        request_token_secret = kwargs.get("request_secret")
+        if not code_verifier:
+            raise Exception("Missing code_verifier for PKCE flow")
         
-        if not oauth_verifier or not request_token_secret:
-             raise Exception("Missing verifier or secret for OAuth 1.0a")
-
-        url = f"{self.OAUTH_BASE}/access_token"
-        params = {"oauth_verifier": oauth_verifier}
+        # Get credentials
+        client_id = str(settings.TWITTER_CLIENT_ID).strip().strip("'").strip('"')
+        client_secret = str(settings.TWITTER_CLIENT_SECRET).strip().strip("'").strip('"')
+        redirect_uri = str(settings.TWITTER_REDIRECT_URI).strip().strip("'").strip('"')
         
-        # Sign with Request Token Secret
-        header = self._get_oauth_header(
-            "POST", url, params, 
-            access_token=oauth_token, 
-            access_token_secret=request_token_secret
-        )
+        # Prepare token request
+        data = {
+            "code": code,
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "code_verifier": code_verifier,
+        }
+        
+        # Basic auth header
+        credentials = f"{client_id}:{client_secret}"
+        basic_auth = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {basic_auth}",
+        }
         
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers={"Authorization": header}, params=params)
+            response = await client.post(
+                self.OAUTH_TOKEN,
+                data=data,
+                headers=headers,
+            )
             
             if response.status_code != 200:
-                raise Exception(f"Failed to get access token: {response.text}")
-                
-            data = dict(x.split("=") for x in response.text.split("&"))
+                raise Exception(f"Token exchange failed: {response.text}")
+            
+            token_data = response.json()
+            
+            # Get user info
+            user_info = await self._get_user_info(
+                client, 
+                token_data["access_token"]
+            )
+            
+            # Calculate expiry
+            expires_at = None
+            if "expires_in" in token_data:
+                expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
             
             return {
-                "access_token": f"{data['oauth_token']}:{data['oauth_token_secret']}",
-                "refresh_token": data["oauth_token_secret"], # Backup
-                "expires_at": None, # Never expires
-                "user_id": data["user_id"],
-                "username": data["screen_name"],
-                "display_name": data["screen_name"],
-                "profile_picture": "", # Need separate call to verify_credentials to get this
+                "access_token": token_data["access_token"],
+                "refresh_token": token_data.get("refresh_token", ""),
+                "expires_at": expires_at,
+                "user_id": user_info["id"],
+                "username": user_info["username"],
+                "display_name": user_info.get("name", ""),
+                "profile_picture": user_info.get("profile_image_url", ""),
             }
-            
+
+    async def _get_user_info(
+        self, 
+        client: httpx.AsyncClient, 
+        access_token: str
+    ) -> Dict[str, Any]:
+        """Get user info from Twitter API"""
+        url = f"{self.API_BASE}/users/me"
+        params = {"user.fields": "id,username,name,profile_image_url"}
+        
+        headers = {"Authorization": f"Bearer {access_token}"}
+        
+        response = await client.get(url, headers=headers, params=params)
+        data = response.json()
+        
+        if "data" not in data:
+            raise Exception(f"Failed to get user info: {data}")
+        
+        return data["data"]
+
     async def get_user_info(self, access_token: str) -> Dict[str, Any]:
-        """Get user info with access token"""
-        if ":" in access_token:
-            token, secret = access_token.split(":", 1)
-        else:
-            # Fallback if somehow we have legacy token, though new impl forces combined
-            raise Exception("Invalid OAuth 1.0a token format. Expected 'token:secret'.")
-            
+        """Get user info (public method)"""
         async with httpx.AsyncClient() as client:
-            user = await self._get_user_info(client, token, secret)
+            user = await self._get_user_info(client, access_token)
             return {
                 "user_id": user["id"],
                 "username": user["username"],
@@ -192,34 +168,46 @@ class TwitterService(BaseSocialService):
                 "profile_picture": user.get("profile_image_url", ""),
             }
 
-    async def _get_user_info(
-        self, 
-        client: httpx.AsyncClient, 
-        access_token: str,
-        access_token_secret: str
-    ) -> Dict[str, Any]:
-        """Internal get user info"""
-        url = f"{self.API_BASE}/users/me"
-        params = {"user.fields": "id,username,name,profile_image_url"}
-        
-        header = self._get_oauth_header("GET", url, params, 
-                                        access_token=access_token, 
-                                        access_token_secret=access_token_secret)
-        
-        response = await client.get(url, headers={"Authorization": header}, params=params)
-        data = response.json()
-        
-        if "data" not in data:
-            raise Exception(f"Failed to get user info: {data}")
-            
-        return data["data"]
-
     async def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
-        """OAuth 1.0a tokens don't expire"""
-        return {
-            "access_token": "token_placeholder", # We don't refresh
-            "expires_at": None
+        """Refresh the access token"""
+        client_id = str(settings.TWITTER_CLIENT_ID).strip().strip("'").strip('"')
+        client_secret = str(settings.TWITTER_CLIENT_SECRET).strip().strip("'").strip('"')
+        
+        data = {
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+            "client_id": client_id,
         }
+        
+        credentials = f"{client_id}:{client_secret}"
+        basic_auth = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {basic_auth}",
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.OAUTH_TOKEN,
+                data=data,
+                headers=headers,
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Token refresh failed: {response.text}")
+            
+            token_data = response.json()
+            
+            expires_at = None
+            if "expires_in" in token_data:
+                expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
+            
+            return {
+                "access_token": token_data["access_token"],
+                "refresh_token": token_data.get("refresh_token", refresh_token),
+                "expires_at": expires_at,
+            }
 
     async def publish_post(
         self,
@@ -228,113 +216,65 @@ class TwitterService(BaseSocialService):
         media_urls: Optional[List[str]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Publish post with OAuth 1.0a"""
-        # Untangle token:secret
-        if ":" in access_token:
-            token, secret = access_token.split(":", 1)
-        else:
-            raise Exception("Invalid OAuth 1.0a token format. Expected 'token:secret'.")
-
+        """
+        Publish a tweet using v2 API.
+        
+        Note: Free tier does NOT support media uploads via v2 API.
+        Media requires Basic tier ($100/month) or higher.
+        """
+        url = f"{self.API_BASE}/tweets"
+        
+        # Text-only tweet (Free tier limitation)
+        payload = {"text": content}
+        
+        # Note: Media uploads are NOT available on Free tier
+        if media_urls:
+            # Log warning but continue with text-only
+            print("WARNING: Media uploads not supported on Twitter Free tier. Posting text only.")
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        
         async with httpx.AsyncClient() as client:
-            media_ids = []
-            if media_urls:
-                for url in media_urls[:4]:
-                    media_id = await self._upload_media(client, token, secret, url)
-                    if media_id:
-                        media_ids.append(media_id)
-            
-            # Post tweet (v2)
-            url = f"{self.API_BASE}/tweets"
-            payload = {"text": content}
-            if media_ids:
-                payload["media"] = {"media_ids": media_ids}
-            
-            # For v2 POST with JSON, signature is tricky. 
-            # OAuth 1.0a spec says body parameters are NOT included in signature if Content-Type is not form-urlencoded.
-            # v2 uses JSON. So we sign only the URL/query params.
-            # The body is NOT signed.
-            
-            header = self._get_oauth_header("POST", url, {}, token, secret)
-            
-            response = await client.post(
-                url, 
-                headers={
-                    "Authorization": header,
-                    "Content-Type": "application/json"
-                },
-                json=payload
-            )
-            
+            response = await client.post(url, json=payload, headers=headers)
             data = response.json()
             
-            if "errors" in data:
-                raise Exception(f"Failed to post: {data['errors']}")
-                
+            if response.status_code != 201:
+                error_msg = data.get("detail", data.get("errors", str(data)))
+                raise Exception(f"Failed to post tweet: {error_msg}")
+            
+            tweet_id = data["data"]["id"]
+            
             return {
-                "post_id": data["data"]["id"],
-                "url": f"https://twitter.com/i/web/status/{data['data']['id']}"
+                "post_id": tweet_id,
+                "url": f"https://twitter.com/i/web/status/{tweet_id}",
             }
 
-    async def _upload_media(
-        self, 
-        client: httpx.AsyncClient, 
-        access_token: str, 
-        access_token_secret: str,
-        media_url: str
-    ) -> Optional[str]:
-        """Upload media (v1.1)"""
-        # Download media
-        media_resp = await client.get(media_url)
-        media_data = media_resp.content
-        
-        url = f"{self.UPLOAD_BASE}/media/upload.json"
-        
-        # INIT
-        params = {
-            "command": "INIT",
-            "total_bytes": str(len(media_data)),
-            "media_type": media_resp.headers.get("content-type", "image/jpeg")
-        }
-        header = self._get_oauth_header("POST", url, params, access_token, access_token_secret)
-        
-        resp = await client.post(url, headers={"Authorization": header}, data=params)
-        media_id = resp.json()["media_id_string"]
-        
-        # APPEND
-        # Uploading binary data is complex with OAuth 1.0a + multipart/form-data.
-        # But Twitter allows raw body or multipart.
-        # The signature only includes oauth params + query params.
-        # Multipart body is not signed.
-        
-        url = f"{self.UPLOAD_BASE}/media/upload.json"
-        params = {
-            "command": "APPEND",
-            "media_id": media_id,
-            "segment_index": "0"
-        }
-        # For APPEND, the media is in body 'media' field.
-        # Signature covers command, media_id, segment_index.
-        header = self._get_oauth_header("POST", url, params, access_token, access_token_secret)
-        
-        files = {"media": media_data}
-        resp = await client.post(
-            url, 
-            headers={"Authorization": header}, 
-            data=params, 
-            files=files
-        )
-        
-        if resp.status_code not in (200, 204):
-            return None
-            
-        # FINALIZE
-        params = {"command": "FINALIZE", "media_id": media_id}
-        header = self._get_oauth_header("POST", url, params, access_token, access_token_secret)
-        resp = await client.post(url, headers={"Authorization": header}, data=params)
-        
-        return media_id
-
     async def revoke_access(self, access_token: str) -> bool:
-        """Revoke not supported via API for 1.0a easily, assume success"""
-        return True
-
+        """Revoke access token"""
+        client_id = str(settings.TWITTER_CLIENT_ID).strip().strip("'").strip('"')
+        client_secret = str(settings.TWITTER_CLIENT_SECRET).strip().strip("'").strip('"')
+        
+        credentials = f"{client_id}:{client_secret}"
+        basic_auth = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {basic_auth}",
+        }
+        
+        data = {
+            "token": access_token,
+            "token_type_hint": "access_token",
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.twitter.com/2/oauth2/revoke",
+                data=data,
+                headers=headers,
+            )
+            
+            return response.status_code == 200

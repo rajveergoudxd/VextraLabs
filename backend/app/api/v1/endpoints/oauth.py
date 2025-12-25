@@ -97,10 +97,11 @@ async def authorize(
     
     if isinstance(auth_data, dict):
         authorization_url = auth_data["url"]
-        # Store secret if present (for OAuth 1.0a)
+        # Store code_verifier for PKCE (OAuth 2.0) or request_secret for OAuth 1.0a
+        if "code_verifier" in auth_data:
+            OAUTH_STATES[state]["code_verifier"] = auth_data["code_verifier"]
         if "oauth_token_secret" in auth_data:
             OAUTH_STATES[state]["request_secret"] = auth_data["oauth_token_secret"]
-            # Alias for OAuth 1.0a callbacks which might only have oauth_token
             if "oauth_token" in auth_data:
                 OAUTH_STATES[auth_data["oauth_token"]] = OAUTH_STATES[state]
     else:
@@ -159,6 +160,7 @@ async def callback(
             oauth_verifier=request.oauth_verifier,
             oauth_token=request.oauth_token,
             request_secret=state_data.get("request_secret"),
+            code_verifier=state_data.get("code_verifier"),  # For PKCE
         )
     except Exception as e:
         raise HTTPException(
