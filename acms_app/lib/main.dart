@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/theme_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:acms_app/services/push_notification_service.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/settings_provider.dart';
@@ -77,10 +76,6 @@ void main() async {
   // For now, we wrap in try-catch to prevent crash if config is missing
   try {
     await Firebase.initializeApp();
-
-    // Initialize Push Notifications
-    final pushService = PushNotificationService();
-    await pushService.initialize();
   } catch (e) {
     debugPrint("==========================================");
     debugPrint("FIREBASE INITIALIZATION FAILED");

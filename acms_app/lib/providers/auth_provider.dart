@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:acms_app/services/auth_service.dart';
 import 'package:acms_app/services/api_client.dart';
+import 'package:acms_app/services/push_notification_service.dart';
 
 class User {
   final int id;
@@ -208,6 +209,15 @@ class AuthProvider extends ChangeNotifier {
     final userData = await _authService.getMe();
     _user = User.fromJson(userData);
     await _cacheUser(_user!);
+
+    // Initialize Push Notifications (now that we are logged in)
+    try {
+      final pushService = PushNotificationService();
+      await pushService.initialize();
+    } catch (e) {
+      debugPrint('Error initializing push notifications: $e');
+    }
+
     notifyListeners();
   }
 
