@@ -118,6 +118,12 @@ class SocialProvider extends ChangeNotifier {
   bool _isLoadingProfile = false;
   String? _profileError;
 
+  // User Posts state
+  List<Map<String, dynamic>> _userPosts = [];
+  bool _isLoadingUserPosts = false;
+  String? _userPostsError;
+  int _userPostsTotal = 0;
+
   // Action state
   bool _isFollowActionLoading = false;
 
@@ -138,6 +144,11 @@ class SocialProvider extends ChangeNotifier {
   PublicProfile? get currentProfile => _currentProfile;
   bool get isLoadingProfile => _isLoadingProfile;
   String? get profileError => _profileError;
+
+  List<Map<String, dynamic>> get userPosts => _userPosts;
+  bool get isLoadingUserPosts => _isLoadingUserPosts;
+  String? get userPostsError => _userPostsError;
+  int get userPostsTotal => _userPostsTotal;
 
   bool get isFollowActionLoading => _isFollowActionLoading;
 
@@ -231,6 +242,25 @@ class SocialProvider extends ChangeNotifier {
       }
     } finally {
       _isLoadingProfile = false;
+      notifyListeners();
+    }
+  }
+
+  /// Load posts for a specific user
+  Future<void> loadUserPosts(int userId) async {
+    _isLoadingUserPosts = true;
+    _userPostsError = null;
+    notifyListeners();
+
+    try {
+      final response = await _socialService.getUserPosts(userId);
+      _userPosts = List<Map<String, dynamic>>.from(response['items']);
+      _userPostsTotal = response['total'] ?? 0;
+    } catch (e) {
+      _userPostsError = 'Failed to load user posts';
+      debugPrint('Load user posts error: $e');
+    } finally {
+      _isLoadingUserPosts = false;
       notifyListeners();
     }
   }

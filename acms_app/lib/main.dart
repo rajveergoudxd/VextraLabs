@@ -357,6 +357,14 @@ class AcmsApp extends StatelessWidget {
       // ---- Post Detail for Deep Links ----
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/post-detail',
+        builder: (context, state) {
+          final post = state.extra as Map<String, dynamic>;
+          return PostDetailScreen(post: post);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/post/:shareToken',
         builder: (context, state) {
           final shareToken = state.pathParameters['shareToken']!;

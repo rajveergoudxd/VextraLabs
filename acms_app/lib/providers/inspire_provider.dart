@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:acms_app/services/post_service.dart';
+import 'package:acms_app/services/social_service.dart';
 
 class InspireProvider extends ChangeNotifier {
   final PostService _postService = PostService();
+  final SocialService _socialService = SocialService();
 
   List<dynamic> _posts = [];
   bool _isLoading = false;
@@ -184,6 +186,76 @@ class InspireProvider extends ChangeNotifier {
       await unsavePost(postId);
     } else {
       await savePost(postId);
+    }
+  }
+
+  /// Toggle follow status for a user
+  Future<void> toggleFollow(int userId) async {
+    // Find if we are currently following this user (based on first post found)
+    bool? isFollowing;
+    for (var post in _posts) {
+      if (post['user'] != null && post['user']['id'] == userId) {
+        isFollowing = post['user']['is_following'] == true;
+        break;
+      }
+    }
+
+    // Default to false if not found
+    isFollowing ??= false;
+
+    final newStatus = !isFollowing;
+
+    // Optimistic update for all posts by this user
+    bool updated = false;
+    for (var post in _posts) {
+      if (post['user'] != null && post['user']['id'] == userId) {
+        post['user']['is_following'] = newStatus;
+        updated = true;
+      }
+    }
+
+    if (updated) notifyListeners();
+
+    try {
+      if (newStatus) {
+        await _socialService.followUser(userId);
+      } else {
+        await _socialService.unfollowUser(userId);
+      }
+    } catch (e) {
+      // Revert on failure
+      for (var post in _posts) {
+        if (post['user'] != null && post['user']['id'] == userId) {
+          post['user']['is_following'] = isFollowing;
+        }
+      }
+      notifyListeners();
+      debugPrint('Failed to toggle follow: $e');
+    }
+  }
+
+  /// Delete a post
+  Future<void> deletePost(int postId) async {
+    // Optimistically remove from list
+    final index = _posts.indexWhere((p) => p['id'] == postId);
+    Map<String, dynamic>? deletedPost;
+
+    if (index != -1) {
+      deletedPost = _posts[index];
+      _posts.removeAt(index);
+      notifyListeners();
+    }
+
+    try {
+      await _postService.deletePost(postId);
+    } catch (e) {
+      // Revert if failed
+      if (deletedPost != null && index != -1) {
+        _posts.insert(index, deletedPost);
+        notifyListeners();
+      }
+      debugPrint('Failed to delete post: $e');
+      rethrow;
     }
   }
 }

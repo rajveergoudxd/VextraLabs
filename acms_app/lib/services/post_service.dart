@@ -362,4 +362,15 @@ class PostService {
       throw 'An unexpected error occurred';
     }
   }
+
+  /// Delete a published post
+  Future<void> deletePost(int postId) async {
+    try {
+      await _client.dio.delete('/posts/$postId');
+    } on DioException catch (e) {
+      throw e.response?.data['detail'] ?? 'Failed to delete post';
+    } catch (e) {
+      throw 'An unexpected error occurred';
+    }
+  }
 }

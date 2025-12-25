@@ -90,4 +90,17 @@ class SocialService {
       rethrow;
     }
   }
+
+  /// Get posts for a specific user
+  Future<Map<String, dynamic>> getUserPosts(
+    int userId, {
+    int page = 1,
+    int size = 20,
+  }) async {
+    final response = await _apiClient.dio.get(
+      '/posts/user/$userId',
+      queryParameters: {'page': page, 'size': size},
+    );
+    return response.data;
+  }
 }

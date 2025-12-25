@@ -18,9 +18,13 @@ class ReviewPublishScreen extends StatelessWidget {
     final selectedMedia = creationProvider.selectedMedia;
 
     // Default image if none selected (shouldn't happen in manual flow if guarded correctly)
+    // Default image if none selected (shouldn't happen in manual flow if guarded correctly)
+    // For manual text-only posts, this can be null.
     final displayImage = selectedMedia.isNotEmpty
         ? selectedMedia.first
-        : "https://lh3.googleusercontent.com/aida-public/AB6AXuCNMaqYoRJ9KyycTlyzur1QQZ5ZbkhWh4vbPkS3hpwf3Fi8p0dwT5HL6g_ruqCTYO7jiVcHBx2BdlaJ7pVS0YDPDfcRS6tD_L65i1DQoAv98D9iqwAnROFN4qU4lp5HpsPdI_RVIqjCS-ZxGPjYpk77cB0ovfyvEWwRpznWeZe1i2_7wYs2tGBt7DUJTfVvgGCyCk-IVz1rrxbGEHmL8bubYWdDgRacEFHWoUths9575rnYpofgGBhJRA8sEA4InJxUe8OVoJCTfcc";
+        : (isManual
+              ? null
+              : "https://lh3.googleusercontent.com/aida-public/AB6AXuCNMaqYoRJ9KyycTlyzur1QQZ5ZbkhWh4vbPkS3hpwf3Fi8p0dwT5HL6g_ruqCTYO7jiVcHBx2BdlaJ7pVS0YDPDfcRS6tD_L65i1DQoAv98D9iqwAnROFN4qU4lp5HpsPdI_RVIqjCS-ZxGPjYpk77cB0ovfyvEWwRpznWeZe1i2_7wYs2tGBt7DUJTfVvgGCyCk-IVz1rrxbGEHmL8bubYWdDgRacEFHWoUths9575rnYpofgGBhJRA8sEA4InJxUe8OVoJCTfcc");
 
     // Platforms to show (only Inspire and LinkedIn for now)
     final allPlatforms = [
@@ -294,7 +298,7 @@ class ReviewPublishScreen extends StatelessWidget {
     required IconData icon,
     required Color color,
     required String content,
-    required String image,
+    String? image,
     bool darkIcon = false,
     required bool isDark,
     int mediaCount = 1,
@@ -341,62 +345,71 @@ class ReviewPublishScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  platform,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
+                Expanded(
+                  child: Text(
+                    platform,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                Icon(Icons.more_horiz, color: Colors.grey[400]),
+                Switch.adaptive(
+                  value: isSelected,
+                  onChanged: isMandatory ? null : (_) => onToggle(),
+                  activeThumbColor: isDark ? Colors.white : AppColors.primary,
+                  activeTrackColor: isDark
+                      ? AppColors.primary.withValues(alpha: 0.5)
+                      : AppColors.primary.withValues(alpha: 0.2),
+                ),
               ],
             ),
           ),
 
           // Image (Carousel indicator if multiple)
-          Stack(
-            children: [
-              ColorFiltered(
-                // Simple hack: if there was a filter on this specific image in global state, we would apply it here.
-                // For now, raw image.
-                colorFilter: const ColorFilter.mode(
-                  Colors.transparent,
-                  BlendMode.dst,
+          if (image != null)
+            Stack(
+              children: [
+                ColorFiltered(
+                  // Simple hack: if there was a filter on this specific image in global state, we would apply it here.
+                  // For now, raw image.
+                  colorFilter: const ColorFilter.mode(
+                    Colors.transparent,
+                    BlendMode.dst,
+                  ),
+                  child: _buildMediaImage(image),
                 ),
-                child: _buildMediaImage(image),
-              ),
-              if (mediaCount > 1)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.copy, color: Colors.white, size: 12),
-                        const SizedBox(width: 4),
-                        Text(
-                          '1/$mediaCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                if (mediaCount > 1)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.copy, color: Colors.white, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            '1/$mediaCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
 
           // Content
           Padding(

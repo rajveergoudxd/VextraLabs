@@ -16,14 +16,6 @@ class SelectModeScreen extends StatefulWidget {
 class _SelectModeScreenState extends State<SelectModeScreen> {
   final _options = [
     {
-      'id': 'manual',
-      'title': 'Completely Manual',
-      'desc': 'Full control. Create content from scratch manually.',
-      'icon': Icons.edit_document,
-      'bg':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDM8G3eU4oVj-f9hkkBPf681RryzFci75IFV0zqSXbdUBjQ3BNeNw7giHm3Wv5A-AflZfnRGJVkwBdTDHYEaYGqTIpQiMxCrXZDHyQJL4vdq-gnF6PB5j-Bu7mTpfbQXDlt8QyvPz_DgMEjDadOyclFQ1kIghNKSfOqgzDNk63Bm1vSyA8IKE-ZDmKIQoaftcbCp4FveuS0ZuB4fnOK6DAfQuqQAxXdHUj2JmUU8rtk7wR48NSMcdJVrQ07mgQ-1VVTQBUd5k0J1rk',
-    },
-    {
       'id': 'auto',
       'title': 'Completely Automatic',
       'desc': 'Hands-free. AI handles creation & publishing.',
@@ -265,12 +257,8 @@ class _SelectModeScreenState extends State<SelectModeScreen> {
                 ),
                 onPressed: selectedId != null
                     ? () {
-                        if (selectedId == 'manual') {
-                          context.push('/create/select-media');
-                        } else {
-                          // Auto or Review modes -> Show Bottom Sheet
-                          _showMediaSourceSheet(context);
-                        }
+                        // Auto or Review modes -> Show Bottom Sheet
+                        _showMediaSourceSheet(context);
                       }
                     : null,
                 child: Text(

@@ -8,6 +8,7 @@ from app.api import deps
 from app.models.post import Post
 from app.models.user import User
 from app.models.like import Like
+from app.models.follow import Follow
 from app.models.comment import Comment
 from app.models.saved_post import SavedPost
 from app.schemas import post as post_schema
@@ -26,12 +27,23 @@ def _build_post_response(
 ) -> post_schema.Post:
     """Helper to build post response with user info, like status, and saved status."""
     result = post_schema.Post.from_orm(post)
+    
+    # Check if current user is following the post owner
+    is_following = False
+    if current_user and db and current_user.id != post.owner.id:
+        follow_exists = db.query(Follow).filter(
+            Follow.follower_id == current_user.id,
+            Follow.following_id == post.owner.id
+        ).first()
+        is_following = follow_exists is not None
+
     result.user = {
         "id": post.owner.id,
         "username": post.owner.username,
         "full_name": post.owner.full_name,
         "profile_picture": post.owner.profile_picture,
         "is_verified": False,
+        "is_following": is_following,
     }
     result.share_token = post.share_token
     
@@ -521,6 +533,21 @@ def toggle_like(
         new_like = Like(user_id=current_user.id, post_id=post_id)
         db.add(new_like)
         post.likes_count += 1
+        
+        # Create notification if not own post
+        if post.user_id != current_user.id:
+            from app.models.notification import Notification, NotificationType
+            notification = Notification(
+                user_id=post.user_id,
+                actor_id=current_user.id,
+                type=NotificationType.LIKE,
+                title="New Like",
+                message=f"{current_user.username} liked your post",
+                related_id=post.id,
+                related_type="post"
+            )
+            db.add(notification)
+            
         db.commit()
         
         return {
@@ -587,6 +614,20 @@ def create_comment(
     
     # Update comment count on post
     post.comments_count += 1
+    
+    # Create notification if not own post
+    if post.user_id != current_user.id:
+        from app.models.notification import Notification, NotificationType
+        notification = Notification(
+            user_id=post.user_id,
+            actor_id=current_user.id,
+            type=NotificationType.COMMENT,
+            title="New Comment",
+            message=f"{current_user.username} commented on your post",
+            related_id=post.id,
+            related_type="post"
+        )
+        db.add(notification)
     
     db.commit()
     db.refresh(comment)
@@ -666,8 +707,41 @@ def get_share_link(
         db.commit()
         db.refresh(post)
     
+
+    
     return {
         "share_token": post.share_token,
         "share_url": f"vextra://post/{post.share_token}",
         "web_url": f"https://vextra.app/post/{post.share_token}"  # For web fallback
     }
+
+
+@router.delete("/{post_id}")
+def delete_post(
+    post_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> dict:
+    """
+    Delete a published post (only by post owner).
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check permission
+    if post.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this post")
+    
+    # Decrement user post count
+    if hasattr(post, 'is_draft') and post.is_draft is False:
+        # Re-fetch user to ensure we have the latest state if needed, 
+        # but post.owner should be loaded if lazy='joined' or similar. 
+        # Using current_user directly is safer since post.user_id == current_user.id
+        current_user.posts_count = max(0, (current_user.posts_count or 0) - 1)
+        db.add(current_user)
+    
+    db.delete(post)
+    db.commit()
+    
+    return {"message": "Post deleted successfully", "id": post_id}

@@ -273,46 +273,63 @@ class _InspireScreenState extends State<InspireScreen> {
             child: Row(
               children: [
                 // Avatar
-                _buildAvatar(post),
+                GestureDetector(
+                  onTap: () {
+                    if (user['username'] != null) {
+                      context.push('/user/${user['username']}');
+                    }
+                  },
+                  child: _buildAvatar(post),
+                ),
                 const SizedBox(width: 12),
                 // User Info
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            user['username'] ?? 'Unknown',
-                            style: TextStyle(
-                              fontSize: 14,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (user['username'] != null) {
+                        context.push('/user/${user['username']}');
+                      }
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              user['username'] ?? 'Unknown',
+                              style: TextStyle(
+                                fontSize: 14,
 
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.grey[900],
-                            ),
-                          ),
-                          if (post['isVerified'] == true) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.grey[900],
                               ),
                             ),
+                            if (post['isVerified'] == true) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 10,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      Text(
-                        '@${user['username']} • ${_formatTimeAgo(post['created_at'])}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                      ),
-                    ],
+                        ),
+                        Text(
+                          '@${user['username']} • ${_formatTimeAgo(post['created_at'])}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 // More Button or Follow Button
@@ -323,9 +340,16 @@ class _InspireScreenState extends State<InspireScreen> {
                   )
                 else
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Provider.of<InspireProvider>(
+                        context,
+                        listen: false,
+                      ).toggleFollow(user['id']);
+                    },
                     style: TextButton.styleFrom(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      backgroundColor: (user['is_following'] == true)
+                          ? (isDark ? Colors.grey[800] : Colors.grey[200])
+                          : AppColors.primary.withValues(alpha: 0.1),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 4,
@@ -335,9 +359,11 @@ class _InspireScreenState extends State<InspireScreen> {
                       ),
                     ),
                     child: Text(
-                      'Follow',
+                      (user['is_following'] == true) ? 'Following' : 'Follow',
                       style: TextStyle(
-                        color: AppColors.primary,
+                        color: (user['is_following'] == true)
+                            ? (isDark ? Colors.grey[300] : Colors.grey[700])
+                            : AppColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -348,16 +374,25 @@ class _InspireScreenState extends State<InspireScreen> {
           ),
 
           // Content
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildContentText(post['content'], isDark),
+          GestureDetector(
+            onTap: () => context.push('/post-detail', extra: post),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildContentText(post['content'], isDark),
+                ),
+                const SizedBox(height: 12),
+
+                // Image or Quote
+                if (imageUrl != null) _buildMediaContent(imageUrl, isDark),
+
+                if (post['quote'] != null)
+                  _buildQuoteCard(post['quote'], isDark),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-
-          // Image or Quote
-          if (imageUrl != null) _buildMediaContent(imageUrl, isDark),
-
-          if (post['quote'] != null) _buildQuoteCard(post['quote'], isDark),
 
           // Action Buttons
           _buildActionButtons(post, isDark),

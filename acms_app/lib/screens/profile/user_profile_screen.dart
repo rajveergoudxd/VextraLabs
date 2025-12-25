@@ -24,7 +24,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SocialProvider>().loadProfile(widget.username);
+      final provider = context.read<SocialProvider>();
+      provider.loadProfile(widget.username).then((_) {
+        // Load posts after profile is loaded so we have the ID
+        if (provider.currentProfile != null && mounted) {
+          provider.loadUserPosts(provider.currentProfile!.id);
+        }
+      });
     });
   }
 
@@ -135,7 +141,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: Row(
               children: [
                 // Avatar
-                _buildAvatar(profile),
+                GestureDetector(
+                  onTap: () {
+                    // Just like in ProfileScreen, show preview
+                    _showImagePreview(context, profile.profilePicture);
+                  },
+                  child: _buildAvatar(profile),
+                ),
                 const SizedBox(width: 24),
 
                 // Stats
@@ -231,8 +243,46 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
           const SizedBox(height: 32),
 
-          // Empty posts section
-          _buildEmptyPosts(isDark),
+          // Posts section
+          _buildPostsSection(isDark, provider),
+        ],
+      ),
+    );
+  }
+
+  void _showImagePreview(BuildContext context, String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) => Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.error, color: Colors.white),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 20,
+            child: Material(
+              color: Colors.transparent,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -398,6 +448,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         'Message',
         style: TextStyle(fontWeight: FontWeight.w600),
       ),
+    );
+  }
+
+  Widget _buildPostsSection(bool isDark, SocialProvider provider) {
+    if (provider.isLoadingUserPosts) {
+      return const Padding(
+        padding: EdgeInsets.all(40.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (provider.userPosts.isEmpty) {
+      return _buildEmptyPosts(isDark);
+    }
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(bottom: 20),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: provider.userPosts.length,
+      itemBuilder: (context, index) {
+        final post = provider.userPosts[index];
+        final mediaUrls = List<String>.from(post['media_urls'] ?? []);
+        final thumbnailUrl = mediaUrls.isNotEmpty ? mediaUrls.first : null;
+
+        return GestureDetector(
+          onTap: () {
+            context.push('/post-detail', extra: post);
+          },
+          child: Container(
+            color: isDark ? Colors.grey[850] : Colors.grey[200],
+            child: thumbnailUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: thumbnailUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                    ),
+                    errorWidget: (context, url, error) =>
+                        Icon(Icons.error, color: Colors.grey[400]),
+                  )
+                : Icon(
+                    Icons.article_outlined,
+                    color: isDark ? Colors.grey[700] : Colors.grey[400],
+                  ),
+          ),
+        );
+      },
     );
   }
 

@@ -32,14 +32,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  Future<void> _loadUserPosts() async {
+  Future<void> _loadUserPosts({bool silent = false}) async {
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
 
-    setState(() {
-      _isLoadingPosts = true;
-      _postsError = null;
-    });
+    if (!silent) {
+      setState(() {
+        _isLoadingPosts = true;
+        _postsError = null;
+      });
+    }
 
     try {
       final data = await _postService.getUserPosts(user.id);
@@ -57,6 +59,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     }
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      Provider.of<AuthProvider>(context, listen: false).refreshUserData(),
+      _loadUserPosts(silent: true),
+    ]);
+  }
+
+  void _showImagePreview(BuildContext context, String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) => Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.error, color: Colors.white),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 20,
+            child: Material(
+              color: Colors.transparent,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -93,288 +140,299 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
 
-    Widget content = CustomScrollView(
-      slivers: [
-        // Sticky Header
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: (isDark ? AppColors.backgroundDark : Colors.white)
-              .withValues(alpha: 0.95),
-          elevation: 0,
-          leading: widget.isEmbedded
-              ? IconButton(
-                  icon: const Icon(Icons.bookmark_border),
-                  onPressed: () => context.push('/saved-posts'),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => context.go('/home'),
-                ),
-          automaticallyImplyLeading: !widget.isEmbedded,
-          title: Text(
-            displayName,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          centerTitle: true,
-          actions: [
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () => context.push('/settings'),
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      border: Border.all(
-                        color: isDark ? AppColors.backgroundDark : Colors.white,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
+    Widget content = RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primary,
+      backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Sticky Header
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: (isDark ? AppColors.backgroundDark : Colors.white)
+                .withValues(alpha: 0.95),
+            elevation: 0,
+            leading: widget.isEmbedded
+                ? IconButton(
+                    icon: const Icon(Icons.bookmark_border),
+                    onPressed: () => context.push('/saved-posts'),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.go('/home'),
                   ),
-                ),
-              ],
+            automaticallyImplyLeading: !widget.isEmbedded,
+            title: Text(
+              displayName,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
-            const SizedBox(width: 8),
-          ],
-          iconTheme: IconThemeData(
-            color: isDark ? Colors.white : AppColors.textMain,
-          ),
-        ),
-
-        // Profile Info
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-                // Header Row: Avatar | Stats
-                Row(
-                  children: [
-                    // Avatar
-                    // Avatar
-                    _buildProfileAvatar(user?.profilePicture, isDark),
-                    const SizedBox(width: 24),
-                    // Stats Expanded
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem(
-                            '${user?.postsCount ?? 0}',
-                            'Posts',
-                            isDark,
-                          ),
-                          _buildStatItem(
-                            '${user?.followersCount ?? 0}',
-                            'Followers',
-                            isDark,
-                            onTap: () {
-                              if (user != null) {
-                                context.push(
-                                  '/follow-list/${user.id}/followers',
-                                );
-                              }
-                            },
-                          ),
-                          _buildStatItem(
-                            '${user?.followingCount ?? 0}',
-                            'Following',
-                            isDark,
-                            onTap: () {
-                              if (user != null) {
-                                context.push(
-                                  '/follow-list/${user.id}/following',
-                                );
-                              }
-                            },
-                          ),
-                        ],
+            centerTitle: true,
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    onPressed: () => context.push('/settings'),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.backgroundDark
+                              : Colors.white,
+                        ),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Name & Bio
-                Text(
-                  user?.fullName ?? 'User',
-                  style: headingStyle.copyWith(fontSize: 18),
-                ),
-                if (user?.bio != null && user!.bio!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    user.bio ?? '',
-                    style: subHeadingStyle.copyWith(fontSize: 14),
                   ),
                 ],
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(width: 8),
+            ],
+            iconTheme: IconThemeData(
+              color: isDark ? Colors.white : AppColors.textMain,
+            ),
+          ),
 
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildActionButton(
-                        context,
-                        'Edit Profile',
-                        isDark,
-                        onTap: () => context.push('/edit-profile'),
+          // Profile Info
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  // Header Row: Avatar | Stats
+                  Row(
+                    children: [
+                      // Avatar
+                      // Avatar
+                      _buildProfileAvatar(user?.profilePicture, isDark),
+                      const SizedBox(width: 24),
+                      // Stats Expanded
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem(
+                              '${user?.postsCount ?? 0}',
+                              'Posts',
+                              isDark,
+                            ),
+                            _buildStatItem(
+                              '${user?.followersCount ?? 0}',
+                              'Followers',
+                              isDark,
+                              onTap: () {
+                                if (user != null) {
+                                  context.push(
+                                    '/follow-list/${user.id}/followers',
+                                  );
+                                }
+                              },
+                            ),
+                            _buildStatItem(
+                              '${user?.followingCount ?? 0}',
+                              'Following',
+                              isDark,
+                              onTap: () {
+                                if (user != null) {
+                                  context.push(
+                                    '/follow-list/${user.id}/following',
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Name & Bio
+                  Text(
+                    user?.fullName ?? 'User',
+                    style: headingStyle.copyWith(fontSize: 18),
+                  ),
+                  if (user?.bio != null && user!.bio!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      user.bio ?? '',
+                      style: subHeadingStyle.copyWith(fontSize: 14),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          'Edit Profile',
+                          isDark,
+                          onTap: () => context.push('/edit-profile'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          'Share Profile',
+                          isDark,
+                          onTap: () {
+                            // Share functionality
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+
+          // Sticky Platform Selector (Tabs)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              isDark: isDark,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    _buildPlatformChip(
+                      'Inspire',
+                      Icons.auto_awesome,
+                      _selectedPlatform == 'Inspire',
+                      isDark,
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildActionButton(
-                        context,
-                        'Share Profile',
-                        isDark,
-                        onTap: () {
-                          // Share functionality
-                        },
+                    _buildPlatformChip(
+                      'Instagram',
+                      FontAwesomeIcons.instagram,
+                      _selectedPlatform == 'Instagram',
+                      isDark,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPlatformChip(
+                      'LinkedIn',
+                      FontAwesomeIcons.linkedin,
+                      _selectedPlatform == 'LinkedIn',
+                      isDark,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPlatformChip(
+                      'Twitter',
+                      FontAwesomeIcons.xTwitter,
+                      _selectedPlatform == 'Twitter',
+                      isDark,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPlatformChip(
+                      'Facebook',
+                      FontAwesomeIcons.facebook,
+                      _selectedPlatform == 'Facebook',
+                      isDark,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ), // End of SliverPersistentHeader
+          // Grid Content for Inspire section
+          if (_selectedPlatform == 'Inspire')
+            ..._buildInspireGrid(isDark)
+          else if (user?.postsCount == 0 || user?.postsCount == null) ...[
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.only(top: 80, bottom: 40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.grid_on,
+                      size: 64,
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No posts yet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.grey[600] : Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'When you publish content to $_selectedPlatform,\nit will appear here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[700] : Colors.grey[500],
                       ),
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-
-        // Sticky Platform Selector (Tabs)
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _StickyTabBarDelegate(
-            isDark: isDark,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  _buildPlatformChip(
-                    'Inspire',
-                    Icons.auto_awesome,
-                    _selectedPlatform == 'Inspire',
-                    isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildPlatformChip(
-                    'Instagram',
-                    FontAwesomeIcons.instagram,
-                    _selectedPlatform == 'Instagram',
-                    isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildPlatformChip(
-                    'LinkedIn',
-                    FontAwesomeIcons.linkedin,
-                    _selectedPlatform == 'LinkedIn',
-                    isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildPlatformChip(
-                    'Twitter',
-                    FontAwesomeIcons.xTwitter,
-                    _selectedPlatform == 'Twitter',
-                    isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildPlatformChip(
-                    'Facebook',
-                    FontAwesomeIcons.facebook,
-                    _selectedPlatform == 'Facebook',
-                    isDark,
-                  ),
-                ],
               ),
             ),
-          ),
-        ),
-
-        // Grid Content for Inspire section
-        if (_selectedPlatform == 'Inspire')
-          ..._buildInspireGrid(isDark)
-        else if (user?.postsCount == 0 || user?.postsCount == null)
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.only(top: 80, bottom: 40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.grid_on,
-                    size: 64,
-                    color: isDark ? Colors.grey[800] : Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No posts yet',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.grey[600] : Colors.grey[400],
+          ] else ...[
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.only(top: 80, bottom: 40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.construction,
+                      size: 64,
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'When you publish content to $_selectedPlatform,\nit will appear here.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[700] : Colors.grey[500],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Coming Soon',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.grey[600] : Colors.grey[400],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '$_selectedPlatform posts will appear here soon.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[700] : Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          )
-        else
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.only(top: 80, bottom: 40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.construction,
-                    size: 64,
-                    color: isDark ? Colors.grey[800] : Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Coming Soon',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.grey[600] : Colors.grey[400],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$_selectedPlatform posts will appear here soon.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[700] : Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+          ],
+        ],
+      ),
     );
 
     if (widget.isEmbedded) {
@@ -500,8 +558,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final content = post['content'] as String? ?? '';
 
             return GestureDetector(
-              onTap: () {
-                // Future: Navigate to post detail
+              onTap: () async {
+                await context.push('/post-detail', extra: post);
+                if (mounted) _loadUserPosts(silent: true);
               },
               child: Container(
                 color: isDark ? Colors.grey[900] : Colors.grey[100],
@@ -671,49 +730,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileAvatar(String? profilePicture, bool isDark) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.2),
-              width: 2,
+    return GestureDetector(
+      onTap: () => _showImagePreview(context, profilePicture),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+                width: 2,
+              ),
             ),
           ),
-        ),
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDark ? Colors.grey[800] : Colors.grey[200],
-          ),
-          child: profilePicture != null && profilePicture.isNotEmpty
-              ? ClipOval(
-                  child: CachedNetworkImage(
-                    imageUrl: profilePicture,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: isDark ? Colors.grey[800] : Colors.grey[200],
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDark ? Colors.grey[800] : Colors.grey[200],
+            ),
+            child: profilePicture != null && profilePicture.isNotEmpty
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: profilePicture,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: isDark ? Colors.grey[800] : Colors.grey[200],
+                      ),
+                      errorWidget: (context, url, error) => Icon(
+                        Icons.person,
+                        size: 40,
+                        color: isDark ? Colors.grey[600] : Colors.grey[400],
+                      ),
                     ),
-                    errorWidget: (context, url, error) => Icon(
-                      Icons.person,
-                      size: 40,
-                      color: isDark ? Colors.grey[600] : Colors.grey[400],
-                    ),
+                  )
+                : Icon(
+                    Icons.person,
+                    size: 40,
+                    color: isDark ? Colors.grey[600] : Colors.grey[400],
                   ),
-                )
-              : Icon(
-                  Icons.person,
-                  size: 40,
-                  color: isDark ? Colors.grey[600] : Colors.grey[400],
-                ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
