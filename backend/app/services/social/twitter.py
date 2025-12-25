@@ -43,7 +43,7 @@ class TwitterService(BaseSocialService):
             
         oauth_params = {
             "oauth_consumer_key": settings.TWITTER_API_KEY,
-            "oauth_nonce": str(uuid.uuid4()),
+            "oauth_nonce": uuid.uuid4().hex,
             "oauth_signature_method": "HMAC-SHA1",
             "oauth_timestamp": str(int(time.time())),
             "oauth_version": "1.0",
@@ -103,7 +103,10 @@ class TwitterService(BaseSocialService):
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url, 
-                headers={"Authorization": header}
+                headers={
+                    "Authorization": header,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
                 # Do not pass params=params, as oauth_callback is already in the header
             )
             
