@@ -18,35 +18,26 @@ async def agent_chat(
 ):
     """
     Chat with the AI agent.
-    
-    The agent can understand natural language commands and return actions
-    for the app to execute (navigation, post creation, settings changes, etc.)
     """
-    if not agent_service.is_available():
-        raise HTTPException(
-            status_code=503,
-            detail="AI Agent service is not available. Please configure GROQ_API_KEY."
-        )
-    
-    # Build user context for personalized responses
+    # Create user context
     user_context = {
         "user_id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
+        "username": current_user.username or current_user.full_name,
+        "email": current_user.email
     }
     
-    # Process the chat request
-    result = await agent_service.chat(
+    response = await agent_service.chat(
         message=request.message,
         history=request.history,
-        user_context=user_context
+        user_context=user_context,
+        db=db
     )
     
     return AgentChatResponse(
-        message=result["message"],
-        actions=result["actions"],
-        success=result["success"],
-        error=result.get("error")
+        message=response["message"],
+        actions=response.get("actions", []),
+        success=response["success"],
+        error=response.get("error")
     )
 
 
