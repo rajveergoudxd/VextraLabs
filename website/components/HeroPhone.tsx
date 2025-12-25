@@ -62,7 +62,7 @@ export function HeroPhone() {
                     <div className="hero-phone-notch"></div>
                     <div className="hero-phone-screen">
                         <Image
-                            src="/screenshot-craft.jpg"
+                            src="/write_text.jpg"
                             alt="Vextra App"
                             fill
                             style={{ objectFit: 'cover' }}
@@ -75,7 +75,7 @@ export function HeroPhone() {
 
                 {/* Floating UI Elements */}
                 <div className="floating-ui floating-ui-1">
-                    <span>✨</span> AI Generated
+                    <span>✨</span> Create Content
                 </div>
                 <div className="floating-ui floating-ui-2">
                     <span>📱</span> Multi-Platform
