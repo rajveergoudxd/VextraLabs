@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:acms_app/services/auth_service.dart';
 import 'package:acms_app/services/api_client.dart';
+import 'package:acms_app/services/settings_service.dart';
 import 'package:acms_app/services/push_notification_service.dart';
 
 class User {
@@ -210,10 +211,17 @@ class AuthProvider extends ChangeNotifier {
     _user = User.fromJson(userData);
     await _cacheUser(_user!);
 
-    // Initialize Push Notifications (now that we are logged in)
+    // Initialize Push Notifications if enabled in settings
     try {
-      final pushService = PushNotificationService();
-      await pushService.initialize();
+      final settingsService = SettingsService();
+      final settings = await settingsService.getSettings();
+
+      if (settings['push_notifications_enabled'] == true) {
+        final pushService = PushNotificationService();
+        // initialize() now only proceeds if permission is already granted
+        // so it's safe to call without prompting
+        await pushService.initialize();
+      }
     } catch (e) {
       debugPrint('Error initializing push notifications: $e');
     }

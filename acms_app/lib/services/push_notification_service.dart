@@ -9,42 +9,21 @@ class PushNotificationService {
 
   String? _token;
 
-  /// Initialize Push Notifications
+  /// Initialize Push Notifications (without requesting permission)
   Future<void> initialize() async {
     try {
       _fcm = FirebaseMessaging.instance;
-    } catch (e) {
-      debugPrint(
-        'FirebaseMessaging not initialized (likely missing config): $e',
-      );
-      return;
-    }
 
-    if (_fcm == null) return;
+      // Check current permission status without prompting
+      NotificationSettings settings = await _fcm!.getNotificationSettings();
 
-    // Request permission
-    NotificationSettings settings = await _fcm!.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        debugPrint('Notification permission not granted. Skipping init.');
+        return;
+      }
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('User granted permission');
-    } else if (settings.authorizationStatus ==
-        AuthorizationStatus.provisional) {
-      debugPrint('User granted provisional permission');
-    } else {
-      debugPrint('User declined or has not accepted permission');
-      return;
-    }
-
-    // Get the token
-    try {
+      // Get the token
       _token = await _fcm!.getToken();
       debugPrint('FCM Token: $_token');
 
@@ -52,27 +31,61 @@ class PushNotificationService {
         // Send token to backend
         await _notificationService.updateFcmToken(_token!);
       }
+
+      // Listen to token refresh
+      _fcm!.onTokenRefresh.listen((newToken) async {
+        _token = newToken;
+        await _notificationService.updateFcmToken(newToken);
+      });
+
+      // Handle messages when app is in foreground
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Got a message whilst in the foreground!');
+        debugPrint('Message data: ${message.data}');
+
+        if (message.notification != null) {
+          debugPrint(
+            'Message also contained a notification: ${message.notification}',
+          );
+        }
+      });
     } catch (e) {
-      debugPrint('Error getting FCM token: $e');
+      debugPrint(
+        'FirebaseMessaging not initialized (likely missing config): $e',
+      );
     }
+  }
 
-    // Listen to token refresh
-    _fcm!.onTokenRefresh.listen((newToken) async {
-      _token = newToken;
-      await _notificationService.updateFcmToken(newToken);
-    });
+  /// Explicitly request permission (e.g. from Settings toggle)
+  Future<bool> requestPermission() async {
+    try {
+      _fcm ??= FirebaseMessaging.instance;
+      NotificationSettings settings = await _fcm!.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
 
-    // Handle messages when app is in foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got a message whilst in the foreground!');
-      debugPrint('Message data: ${message.data}');
-
-      if (message.notification != null) {
-        debugPrint(
-          'Message also contained a notification: ${message.notification}',
-        );
-        // Here we could show a local notification overlay or update the badge
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        debugPrint('User granted permission');
+        await initialize(); // Setup listeners now that we have permission
+        return true;
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
+        debugPrint('User granted provisional permission');
+        await initialize();
+        return true;
+      } else {
+        debugPrint('User declined or has not accepted permission');
+        return false;
       }
-    });
+    } catch (e) {
+      debugPrint('Error requesting permission: $e');
+      return false;
+    }
   }
 }

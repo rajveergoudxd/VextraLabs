@@ -22,7 +22,7 @@ class UserSettings {
     return UserSettings(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? 0,
-      pushNotificationsEnabled: json['push_notifications_enabled'] ?? true,
+      pushNotificationsEnabled: json['push_notifications_enabled'] ?? false,
       emailNotificationsEnabled: json['email_notifications_enabled'] ?? true,
       themePreference: json['theme_preference'] ?? 'system',
     );
@@ -32,7 +32,7 @@ class UserSettings {
     return UserSettings(
       id: 0,
       userId: 0,
-      pushNotificationsEnabled: true,
+      pushNotificationsEnabled: false,
       emailNotificationsEnabled: true,
       themePreference: 'system',
     );
@@ -78,15 +78,21 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // If enabling, request permission process first
+      if (enabled) {
+        final granted = await _pushService.requestPermission();
+        if (!granted) {
+          // Permission denied, don't update settings
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
       final data = await _settingsService.updateSettings(
         pushNotificationsEnabled: enabled,
       );
       _settings = UserSettings.fromJson(data);
-
-      // Sync token state
-      if (enabled) {
-        await _pushService.initialize();
-      }
 
       _isLoading = false;
       notifyListeners();
