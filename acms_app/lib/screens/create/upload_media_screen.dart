@@ -22,6 +22,7 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
   final Set<String> _selectedAssetIds = {};
   bool _isLoading = true;
   bool _hasPermission = false;
+  bool _hasLimitedAccess = false;
 
   // Platform tabs - matching SelectMediaScreen style
   final List<String> _platforms = [
@@ -48,6 +49,8 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
     if (permission.isAuth || permission.hasAccess) {
       setState(() {
         _hasPermission = true;
+        // Check if access is limited (iOS 14+)
+        _hasLimitedAccess = permission == PermissionState.limited;
       });
 
       // Get recent photos
@@ -206,6 +209,52 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
         );
         PhotoManager.openSetting();
       }
+    }
+  }
+
+  /// Add more photos from gallery (for limited access)
+  Future<void> _addMorePhotos() async {
+    try {
+      // Use image_picker to let user select additional photos
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+
+      if (pickedFiles.isNotEmpty && mounted) {
+        final provider = context.read<CreationProvider>();
+
+        // Add currently selected gallery assets first
+        for (final asset in _galleryAssets.where(
+          (a) => _selectedAssetIds.contains(a.id),
+        )) {
+          final file = await asset.file;
+          if (file != null) {
+            provider.toggleMediaSelection(file.path);
+          }
+        }
+
+        // Add newly picked files
+        for (final file in pickedFiles) {
+          provider.toggleMediaSelection(file.path);
+        }
+
+        // Reload gallery to show any newly accessible photos
+        await _loadGalleryAssets();
+      }
+    } catch (e) {
+      debugPrint('Error picking additional photos: $e');
+    }
+  }
+
+  /// Open system photo picker to modify limited selection (iOS)
+  Future<void> _modifyLimitedSelection() async {
+    // This opens the iOS photo picker to modify limited selection
+    await PhotoManager.presentLimited();
+    // Reload assets after user modifies selection
+    if (mounted) {
+      await _loadGalleryAssets();
     }
   }
 
@@ -481,6 +530,15 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
               ),
               Row(
                 children: [
+                  // Add more photos button (shows when limited access)
+                  if (_hasLimitedAccess) ...[
+                    _buildCircleButton(
+                      Icons.add_photo_alternate,
+                      isDark,
+                      onTap: _addMorePhotos,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _buildCircleButton(
                     Icons.camera_alt,
                     isDark,
@@ -537,9 +595,17 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
               crossAxisSpacing: 2,
               mainAxisSpacing: 2,
             ),
-            itemCount: _galleryAssets.length,
+            // Add 1 for the "Add More" tile when in limited access mode
+            itemCount: _galleryAssets.length + (_hasLimitedAccess ? 1 : 0),
             itemBuilder: (context, index) {
-              final asset = _galleryAssets[index];
+              // Show "Add More" tile as the first item in limited access mode
+              if (_hasLimitedAccess && index == 0) {
+                return _buildAddMoreTile(isDark);
+              }
+
+              // Adjust index for actual assets when in limited mode
+              final assetIndex = _hasLimitedAccess ? index - 1 : index;
+              final asset = _galleryAssets[assetIndex];
               final isSelected = _selectedAssetIds.contains(asset.id);
               final selectionIndex = isSelected
                   ? _getSelectionIndex(asset.id)
@@ -691,6 +757,57 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
           icon,
           size: 20,
           color: isDark ? Colors.grey[300] : Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
+  /// Build the "Add More Photos" tile for limited access mode
+  Widget _buildAddMoreTile(bool isDark) {
+    return GestureDetector(
+      onTap: _addMorePhotos,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey[850] : Colors.grey[100],
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.5),
+            width: 2,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_photo_alternate,
+                size: 28,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add More',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+            Text(
+              'Photos',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
         ),
       ),
     );
