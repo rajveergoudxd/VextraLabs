@@ -47,13 +47,28 @@ class AgentProvider extends ChangeNotifier {
       _sttInitialized = await _stt.initialize(
         onError: (error) {
           debugPrint('STT Error: ${error.errorMsg}');
-          _setError('Speech recognition error: ${error.errorMsg}');
+          // If error is "error_no_match" (timeout) or "error_speech_timeout", just revert to idle
+          // "error_busy" can also happen if we try to listen while listening
+          if (error.errorMsg == 'error_no_match' ||
+              error.errorMsg == 'error_speech_timeout' ||
+              error.errorMsg == 'error_busy') {
+            _setState(AgentState.idle);
+          } else {
+            // Only show toast/error state for actual failures
+            // But for better UX, maybe just log it and go idle?
+            // Let's stick to showing real errors but suppressing timeouts.
+            _setError('Speech recognition error: ${error.errorMsg}');
+          }
         },
         onStatus: (status) {
           debugPrint('STT Status: $status');
           if (status == 'done' && _state == AgentState.listening) {
-            // STT finished, process the transcript
-            _processTranscript();
+            // STT finished, if we have a transcript process it, otherwise idle
+            if (_transcript.isNotEmpty) {
+              _processTranscript();
+            } else {
+              _setState(AgentState.idle);
+            }
           }
         },
       );
