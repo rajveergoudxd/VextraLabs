@@ -5,31 +5,31 @@ import Image from 'next/image'
 
 const screenshots = [
     {
-        src: '/screenshot-home.jpg',
+        src: '/home_page.jpg',
         alt: 'Home Screen',
         title: 'Home Feed',
         description: 'Stay updated with your world',
     },
     {
-        src: '/screenshot-create-post.jpg',
+        src: '/select_media.jpeg',
         alt: 'Select Media Screen',
         title: 'Select Media',
         description: 'Choose photos or videos to share',
     },
     {
-        src: '/screenshot-craft.jpg',
+        src: '/write_text.jpg',
         alt: 'Write Text Screen',
         title: 'Write Text',
         description: 'Add captions and hashtags',
     },
     {
-        src: '/screenshot-review.jpg',
+        src: '/review section.jpg',
         alt: 'Review Screen',
         title: 'Review',
         description: 'Preview before publishing',
     },
     {
-        src: '/screenshot-profile-new.jpg',
+        src: '/profile_page.jpg',
         alt: 'Profile Screen',
         title: 'Your Profile',
         description: 'Manage your content and portfolio',
