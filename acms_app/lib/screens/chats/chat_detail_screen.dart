@@ -125,7 +125,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     final success = await context.read<ChatProvider>().sendMessage(text);
     if (success && mounted) {
-      _scrollToBottom();
+      // Automatic with reverse: true
     }
   }
 
@@ -139,7 +139,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (image != null && mounted) {
       final success = await chatProvider.sendMediaMessage(File(image.path));
       if (success && mounted) {
-        _scrollToBottom();
+        // _scrollToBottom() not needed with reverse: true
       }
     }
   }
@@ -154,7 +154,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (photo != null && mounted) {
       final success = await chatProvider.sendMediaMessage(File(photo.path));
       if (success && mounted) {
-        _scrollToBottom();
+        // _scrollToBottom() not needed with reverse: true
       }
     }
   }
@@ -371,30 +371,39 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   ) {
     return ListView.builder(
       controller: _scrollController,
+      reverse: true, // Start from bottom
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: messages.length,
       itemBuilder: (context, index) {
-        final message = messages[index];
+        // Inverted index for data access
+        // When reversed, index 0 is at the bottom visually
+        // We want messages.last (newest) to be at index 0
+        final dataIndex = messages.length - 1 - index;
+        final message = messages[dataIndex];
         final isMe = message.senderId == currentUserId;
 
-        // Check for read status update on build
-        if (index == messages.length - 1) {
-          // If we're rendering the last message, check all messages for unread status
+        // Check for read status update on build (check on first visual item, which is last data item)
+        if (index == 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _checkAndMarkRead(messages, currentUserId);
           });
         }
 
         // Check if we should show date separator
+        // Visually, the separator is ABOVE the message.
+        // In a reversed list, "above" is index + 1 (next item in list)
+        // So we compare current message (dataIndex) with the one *before* it in time (dataIndex - 1)
         bool showDateSeparator = false;
-        if (index == 0) {
+        if (dataIndex == 0) {
+          // Oldest message (first in data list) always gets a separator
           showDateSeparator = true;
         } else {
-          final prevMessage = messages[index - 1];
+          final prevMessage = messages[dataIndex - 1];
           final dayDiff = message.createdAt
               .difference(prevMessage.createdAt)
               .inDays;
-          showDateSeparator = dayDiff > 0;
+          showDateSeparator =
+              dayDiff > 0 || message.createdAt.day != prevMessage.createdAt.day;
         }
 
         return Column(
