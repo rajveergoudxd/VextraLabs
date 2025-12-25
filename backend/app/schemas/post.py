@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class PostBase(BaseModel):
     content: Optional[str] = None
     media_urls: Optional[List[str]] = None
-    platforms: Optional[List[str]] = None
+    platforms: Optional[Any] = None
     title: Optional[str] = None
 
 # Properties to receive on item creation
