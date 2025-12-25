@@ -202,8 +202,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
           return GestureDetector(
             onTap: () {
-              if (otherUser?.id != null) {
-                context.push('/profile/${otherUser!.id}');
+              if (otherUser?.username != null) {
+                context.push('/user/${otherUser!.username}');
               }
             },
             child: Row(
