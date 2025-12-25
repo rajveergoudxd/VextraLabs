@@ -272,7 +272,7 @@ export const download = {
     subtitle: "Don't let your ideas get lost in the noise.",
     cta: {
         primary: { label: 'Download Vextra APK', href: '/app-arm64-v8a-release.apk', download: true },
-        secondary: { label: 'Follow Vextra Labs', href: 'https://linkedin.com/company/vextralabs' },
+        secondary: { label: 'Follow Vextra Labs', href: 'https://linkedin.com/company/vextra-labs' },
     },
     note: 'Available for Android. iOS coming soon.',
 } as const;
