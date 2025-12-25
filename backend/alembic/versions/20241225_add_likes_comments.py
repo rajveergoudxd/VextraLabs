@@ -49,6 +49,21 @@ def upgrade():
     op.create_index('idx_comment_user_id', 'comments', ['user_id'])
     op.create_index('idx_comment_created_at', 'comments', ['created_at'])
     
+    # Create saved_posts table
+    op.create_table(
+        'saved_posts',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('post_id', sa.Integer(), nullable=False),
+        sa.Column('saved_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', 'post_id', name='uq_user_post_saved')
+    )
+    op.create_index('idx_saved_post_user_id', 'saved_posts', ['user_id'])
+    op.create_index('idx_saved_post_post_id', 'saved_posts', ['post_id'])
+    
     # Add share_token column to posts table
     op.add_column('posts', sa.Column('share_token', sa.String(32), nullable=True))
     op.create_index('ix_posts_share_token', 'posts', ['share_token'], unique=True)
@@ -71,6 +86,11 @@ def downgrade():
     # Remove share_token from posts
     op.drop_index('ix_posts_share_token', 'posts')
     op.drop_column('posts', 'share_token')
+    
+    # Drop saved_posts table
+    op.drop_index('idx_saved_post_post_id', 'saved_posts')
+    op.drop_index('idx_saved_post_user_id', 'saved_posts')
+    op.drop_table('saved_posts')
     
     # Drop comments table
     op.drop_index('idx_comment_created_at', 'comments')
