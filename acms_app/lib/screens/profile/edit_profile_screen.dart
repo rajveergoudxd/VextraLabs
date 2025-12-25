@@ -234,6 +234,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isDark,
               onConnect: () => _showConnectDialog('Instagram'),
               onDisconnect: () => _disconnectPlatform('instagram'),
+              comingSoon: true,
             ),
             _buildPlatformCard(
               'LinkedIn',
@@ -252,6 +253,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isDark,
               onConnect: () => _showConnectDialog('Twitter'),
               onDisconnect: () => _disconnectPlatform('twitter'),
+              comingSoon: true,
             ),
             _buildPlatformCard(
               'Facebook',
@@ -261,6 +263,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isDark,
               onConnect: () => _showConnectDialog('Facebook'),
               onDisconnect: () => _disconnectPlatform('facebook'),
+              comingSoon: true,
             ),
           ],
         ),
@@ -404,108 +407,144 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bool isDark, {
     required VoidCallback onConnect,
     required VoidCallback onDisconnect,
+    bool comingSoon = false,
   }) {
     final isConnected = connectedAccount != null && connectedAccount.isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isConnected
-              ? AppColors.primary.withValues(alpha: 0.3)
-              : (isDark ? Colors.grey[800]! : Colors.grey[200]!),
+    return Opacity(
+      opacity: comingSoon ? 0.6 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isConnected
+                ? AppColors.primary.withValues(alpha: 0.3)
+                : (isDark ? Colors.grey[800]! : Colors.grey[200]!),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Platform Logo
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey[800] : Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            // Platform Logo
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[800] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: FaIcon(icon, color: iconColor, size: 24),
             ),
-            child: FaIcon(icon, color: iconColor, size: 24),
-          ),
-          const SizedBox(width: 16),
+            const SizedBox(width: 16),
 
-          // Platform Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  platformName,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : AppColors.textMain,
-                  ),
-                ),
-                if (isConnected)
+            // Platform Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    '@$connectedAccount',
+                    platformName,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : AppColors.textMain,
                     ),
                   ),
-              ],
+                  if (comingSoon)
+                    Text(
+                      'Coming Soon',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.orange[400],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  else if (isConnected)
+                    Text(
+                      '@$connectedAccount',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
 
-          // Connect/Disconnect Button
-          isConnected
-              ? OutlinedButton(
-                  onPressed: onDisconnect,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text(
-                    'Connected',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                )
-              : ElevatedButton(
-                  onPressed: onConnect,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Connect',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            // Connect/Disconnect Button or Coming Soon badge
+            if (comingSoon)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
                   ),
                 ),
-        ],
+                child: Text(
+                  'Soon',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange[700],
+                  ),
+                ),
+              )
+            else if (isConnected)
+              OutlinedButton(
+                onPressed: onDisconnect,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Connected',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: onConnect,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Connect',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

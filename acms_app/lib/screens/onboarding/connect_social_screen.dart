@@ -82,6 +82,7 @@ class ConnectSocialScreen extends StatelessWidget {
                         end: Alignment.topRight,
                       ),
                       isDark: isDark,
+                      comingSoon: true,
                     ),
                     const SizedBox(height: 12),
                     _buildSocialItem(
@@ -91,6 +92,7 @@ class ConnectSocialScreen extends StatelessWidget {
                       icon: Icons.public,
                       color: const Color(0xFF1877F2),
                       isDark: isDark,
+                      comingSoon: true,
                     ),
                     const SizedBox(height: 12),
                     _buildSocialItem(
@@ -101,8 +103,8 @@ class ConnectSocialScreen extends StatelessWidget {
                           Icons.close, // Using close as X placeholder or custom
                       color: isDark ? Colors.white : Colors.black,
                       iconColor: isDark ? Colors.black : Colors.white,
-                      connected: true,
                       isDark: isDark,
+                      comingSoon: true,
                     ),
                     const SizedBox(height: 12),
                     _buildSocialItem(
@@ -220,99 +222,137 @@ class ConnectSocialScreen extends StatelessWidget {
     Color iconColor = Colors.white,
     bool connected = false,
     required bool isDark,
+    bool comingSoon = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2c1a1a) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.05),
+    return Opacity(
+      opacity: comingSoon ? 0.6 : 1.0,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2c1a1a) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.05),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color,
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: iconColor, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppColors.textMain,
-                  ),
-                ),
-                Text(
-                  desc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.5)
-                        : AppColors.textMain.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (connected)
+        child: Row(
+          children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: const Row(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color,
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
-                  SizedBox(width: 4),
                   Text(
-                    'Linked',
+                    name,
                     style: TextStyle(
-                      color: AppColors.success,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      color: isDark ? Colors.white : AppColors.textMain,
+                    ),
+                  ),
+                  Text(
+                    comingSoon ? 'Coming Soon' : desc,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: comingSoon
+                          ? Colors.orange[400]
+                          : (isDark
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : AppColors.textMain.withValues(alpha: 0.5)),
+                      fontWeight: comingSoon
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
-            )
-          else
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                minimumSize: const Size(80, 36),
-                padding: EdgeInsets.zero,
-              ),
-              child: const Text(
-                'Connect',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
             ),
-        ],
+            if (comingSoon)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  'Soon',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange[700],
+                  ),
+                ),
+              )
+            else if (connected)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 20,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Linked',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  minimumSize: const Size(80, 36),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Text(
+                  'Connect',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
