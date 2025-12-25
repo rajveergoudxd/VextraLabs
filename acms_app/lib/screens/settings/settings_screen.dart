@@ -205,16 +205,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 if (!success && context.mounted) {
                                   // Show error if update failed (permission denied or network error)
                                   if (settingsProvider.error != null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(settingsProvider.error!),
-                                        backgroundColor: Colors.red,
-                                        action: SnackBarAction(
-                                          label: 'Settings',
-                                          textColor: Colors.white,
-                                          onPressed: () => openAppSettings(),
+                                    // Show dialog instead of snackbar for better visibility
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text(
+                                          'Permission Required',
                                         ),
-                                        duration: const Duration(seconds: 4),
+                                        content: Text(settingsProvider.error!),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                              openAppSettings();
+                                            },
+                                            child: const Text('Open Settings'),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   }

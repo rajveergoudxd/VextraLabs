@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:acms_app/services/notification_service.dart';
 
 /// Service for handling push notifications
@@ -59,28 +60,19 @@ class PushNotificationService {
   /// Explicitly request permission (e.g. from Settings toggle)
   Future<bool> requestPermission() async {
     try {
-      _fcm ??= FirebaseMessaging.instance;
-      NotificationSettings settings = await _fcm!.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+      // Use permission_handler for robust request behavior (especially Android 13+)
+      final status = await Permission.notification.request();
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('User granted permission');
+      if (status.isGranted) {
+        debugPrint('User granted permission via permission_handler');
         await initialize(); // Setup listeners now that we have permission
         return true;
-      } else if (settings.authorizationStatus ==
-          AuthorizationStatus.provisional) {
+      } else if (status.isProvisional) {
         debugPrint('User granted provisional permission');
         await initialize();
         return true;
       } else {
-        debugPrint('User declined or has not accepted permission');
+        debugPrint('User declined or has not accepted permission: $status');
         return false;
       }
     } catch (e) {
