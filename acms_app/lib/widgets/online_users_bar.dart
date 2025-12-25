@@ -22,7 +22,7 @@ class OnlineUsersBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: 100,
+      height: 115,
       decoration: BoxDecoration(
         color: isDark ? AppColors.backgroundDark : AppColors.surfaceLight,
         border: Border(

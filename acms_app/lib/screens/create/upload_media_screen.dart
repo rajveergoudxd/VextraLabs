@@ -248,16 +248,6 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
     }
   }
 
-  /// Open system photo picker to modify limited selection (iOS)
-  Future<void> _modifyLimitedSelection() async {
-    // This opens the iOS photo picker to modify limited selection
-    await PhotoManager.presentLimited();
-    // Reload assets after user modifies selection
-    if (mounted) {
-      await _loadGalleryAssets();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
