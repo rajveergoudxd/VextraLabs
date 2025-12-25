@@ -23,13 +23,13 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "navigate_to",
-            "description": "Navigate to a specific screen in the app",
+            "description": "Navigate to a specific screen. Use this for 'show me...', 'go to...', or 'refresh' commands.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "screen": {
                         "type": "string",
-                        "description": "Screen name to navigate to",
+                        "description": "Screen to open",
                         "enum": [
                             "home", "profile", "settings", "inspire", "create",
                             "notifications", "saved_posts", "drafts", "chat",
@@ -42,23 +42,23 @@ AGENT_TOOLS = [
         }
     },
     
-    # ------------- POST CREATION -------------
+    # ------------- CONTENT CREATION -------------
     {
         "type": "function",
         "function": {
             "name": "create_post",
-            "description": "Create and publish a new post to social platforms. Use this when user wants to create, write, or publish content.",
+            "description": "Create a new post. Use when user wants to write/publish content.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "The text content of the post"
+                        "description": "The post text"
                     },
                     "platforms": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Platforms to publish to: 'inspire', 'instagram', 'twitter', 'linkedin'"
+                        "description": "Target platforms"
                     }
                 },
                 "required": ["content"]
@@ -68,191 +68,95 @@ AGENT_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "save_draft",
-            "description": "Save the current content as a draft for later editing/publishing",
+            "name": "manage_draft",
+            "description": "Save, publish, or delete drafts.",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["save", "publish", "delete"],
+                        "description": "Action to perform on draft"
+                    },
+                    "draft_id": {
+                        "type": "integer",
+                        "description": "ID of draft (for publish/delete)"
+                    },
                     "content": {
                         "type": "string",
-                        "description": "Draft content to save"
+                        "description": "Content to save (for save)"
                     },
                     "title": {
                         "type": "string",
-                        "description": "Optional title for the draft"
+                        "description": "Title (optional for save)"
                     }
                 },
-                "required": ["content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_drafts",
-            "description": "Retrieve all saved drafts for the user",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "publish_draft",
-            "description": "Publish a saved draft",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "draft_id": {
-                        "type": "integer",
-                        "description": "ID of the draft to publish"
-                    }
-                },
-                "required": ["draft_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_draft",
-            "description": "Delete a saved draft",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "draft_id": {
-                        "type": "integer",
-                        "description": "ID of the draft to delete"
-                    }
-                },
-                "required": ["draft_id"]
+                "required": ["action"]
             }
         }
     },
     
-    # ------------- POST INTERACTIONS -------------
+    # ------------- INTERACTIONS -------------
     {
         "type": "function",
         "function": {
-            "name": "like_post",
-            "description": "Like or unlike a post",
+            "name": "interact_with_post",
+            "description": "Perform actions on a post: like, save, delete, share, comment.",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["like", "save", "unsave", "delete", "share", "comment"],
+                        "description": "Interaction type"
+                    },
                     "post_id": {
                         "type": "integer",
-                        "description": "ID of the post to like"
-                    }
-                },
-                "required": ["post_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "save_post",
-            "description": "Save/bookmark a post to the user's saved collection",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "post_id": {
-                        "type": "integer",
-                        "description": "ID of the post to save"
-                    }
-                },
-                "required": ["post_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "unsave_post",
-            "description": "Remove a post from saved collection",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "post_id": {
-                        "type": "integer",
-                        "description": "ID of the post to unsave"
-                    }
-                },
-                "required": ["post_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_post",
-            "description": "Delete user's own post",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "post_id": {
-                        "type": "integer",
-                        "description": "ID of the post to delete"
-                    }
-                },
-                "required": ["post_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "add_comment",
-            "description": "Add a comment to a post",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "post_id": {
-                        "type": "integer",
-                        "description": "ID of the post to comment on"
+                        "description": "ID of the target post"
                     },
                     "content": {
                         "type": "string",
-                        "description": "Comment text"
+                        "description": "Comment text (only for 'comment' action)"
                     }
                 },
-                "required": ["post_id", "content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "share_post",
-            "description": "Get a shareable link for a post",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "post_id": {
-                        "type": "integer",
-                        "description": "ID of the post to share"
-                    }
-                },
-                "required": ["post_id"]
+                "required": ["action", "post_id"]
             }
         }
     },
     
-    # ------------- SOCIAL / USERS -------------
+    # ------------- SOCIAL -------------
+    {
+        "type": "function",
+        "function": {
+            "name": "manage_relationship",
+            "description": "Follow or unfollow a user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["follow", "unfollow"]
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                },
+                "required": ["action"]
+            }
+        }
+    },
     {
         "type": "function",
         "function": {
             "name": "search_users",
-            "description": "Search for users by name or username",
+            "description": "Search for users.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query (name or username)"
-                    }
+                    "query": {"type": "string"}
                 },
                 "required": ["query"]
             }
@@ -262,109 +166,27 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "view_profile",
-            "description": "View a user's public profile",
+            "description": "View a user's profile.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "username": {
-                        "type": "string",
-                        "description": "Username of the profile to view"
-                    }
+                    "username": {"type": "string"}
                 },
                 "required": ["username"]
             }
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "follow_user",
-            "description": "Follow a user",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {
-                        "type": "integer",
-                        "description": "ID of user to follow"
-                    },
-                    "username": {
-                        "type": "string",
-                        "description": "Username of user to follow (alternative to user_id)"
-                    }
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "unfollow_user",
-            "description": "Unfollow a user",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {
-                        "type": "integer",
-                        "description": "ID of user to unfollow"
-                    },
-                    "username": {
-                        "type": "string",
-                        "description": "Username of user to unfollow (alternative to user_id)"
-                    }
-                }
-            }
-        }
-    },
     
-    # ------------- FEED / CONTENT -------------
-    {
-        "type": "function",
-        "function": {
-            "name": "refresh_feed",
-            "description": "Refresh the inspire/home feed to get latest posts",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_my_posts",
-            "description": "Get the current user's own published posts",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_saved_posts",
-            "description": "Get all posts saved by the user",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    
-    # ------------- SETTINGS -------------
+    # ------------- SETTINGS & ACCOUNT -------------
     {
         "type": "function",
         "function": {
             "name": "change_theme",
-            "description": "Change the app theme",
+            "description": "Change app theme (light/dark/system).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mode": {
-                        "type": "string",
-                        "description": "Theme mode",
-                        "enum": ["light", "dark", "system"]
-                    }
+                    "mode": {"type": "string", "enum": ["light", "dark", "system"]}
                 },
                 "required": ["mode"]
             }
@@ -374,14 +196,11 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "toggle_notifications",
-            "description": "Enable or disable push notifications",
+            "description": "Enable/disable push notifications.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "enabled": {
-                        "type": "boolean",
-                        "description": "Whether notifications should be enabled"
-                    }
+                    "enabled": {"type": "boolean"}
                 },
                 "required": ["enabled"]
             }
@@ -391,18 +210,12 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "update_profile",
-            "description": "Update user profile information",
+            "description": "Update profile info.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "full_name": {
-                        "type": "string",
-                        "description": "User's display name"
-                    },
-                    "bio": {
-                        "type": "string",
-                        "description": "User's bio/description"
-                    }
+                    "full_name": {"type": "string"},
+                    "bio": {"type": "string"}
                 }
             }
         }
@@ -411,60 +224,31 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "logout",
-            "description": "Log out of the current account",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
+            "description": "Log out.",
+            "parameters": {}
         }
     },
     
-    # ------------- NOTIFICATIONS -------------
-    {
-        "type": "function",
-        "function": {
-            "name": "get_notifications",
-            "description": "Get user's notifications",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
+    # ------------- EXTRAS -------------
     {
         "type": "function",
         "function": {
             "name": "mark_notifications_read",
-            "description": "Mark all notifications as read",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
+            "description": "Mark all notifications read.",
+            "parameters": {}
         }
     },
-    
-    # ------------- CONTENT GENERATION (AI Assist) -------------
     {
         "type": "function",
         "function": {
             "name": "generate_caption",
-            "description": "Generate or improve a caption/post content using AI",
+            "description": "Generate caption using AI.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "Topic or theme for the caption"
-                    },
-                    "style": {
-                        "type": "string",
-                        "description": "Writing style",
-                        "enum": ["professional", "casual", "funny", "inspirational", "informative"]
-                    },
-                    "existing_content": {
-                        "type": "string",
-                        "description": "Existing content to improve (optional)"
-                    }
+                    "topic": {"type": "string"},
+                    "style": {"type": "string"},
+                    "existing_content": {"type": "string"}
                 },
                 "required": ["topic"]
             }
@@ -474,18 +258,12 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "suggest_hashtags",
-            "description": "Suggest relevant hashtags for content",
+            "description": "Suggest hashtags.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "content": {
-                        "type": "string",
-                        "description": "The post content to generate hashtags for"
-                    },
-                    "count": {
-                        "type": "integer",
-                        "description": "Number of hashtags to suggest (default 5)"
-                    }
+                    "content": {"type": "string"},
+                    "count": {"type": "integer"}
                 },
                 "required": ["content"]
             }
@@ -620,10 +398,15 @@ class AgentService:
                         response_text = f"Taking you to {screen.replace('_', ' ')}."
                     elif "create_post" in action_names:
                         response_text = "Creating your post now."
-                    elif "follow_user" in action_names:
-                        response_text = "Following that user for you."
-                    elif "unfollow_user" in action_names:
-                        response_text = "Unfollowing that user."
+                    elif "manage_draft" in action_names:
+                        action = actions[0].parameters.get("action", "manage")
+                        response_text = f"{action.capitalize()}ing draft."
+                    elif "manage_relationship" in action_names:
+                        action = actions[0].parameters.get("action", "update")
+                        response_text = f"{action.capitalize()}ing user."
+                    elif "interact_with_post" in action_names:
+                        action = actions[0].parameters.get("action", "interact")
+                        response_text = f"{action.capitalize()}ing post."
                     elif "change_theme" in action_names:
                         mode = actions[0].parameters.get("mode", "selected")
                         response_text = f"Switching to {mode} theme."
@@ -637,8 +420,11 @@ class AgentService:
             }
             
         except Exception as e:
+            import traceback
+            print(f"Error in agent chat: {e}")
+            traceback.print_exc()
             return {
-                "message": "I encountered an error processing your request. Please try again.",
+                "message": f"I encountered an error processing your request. Please try again. (Error: {str(e)})",
                 "actions": [],
                 "success": False,
                 "error": str(e)

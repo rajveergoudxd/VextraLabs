@@ -204,6 +204,7 @@ class AgentProvider extends ChangeNotifier {
 
     switch (action.name) {
       // ===== NAVIGATION =====
+
       case 'navigate_to':
         final screen = action.parameters['screen'] as String?;
         if (screen != null) {
@@ -233,90 +234,67 @@ class AgentProvider extends ChangeNotifier {
         }
         break;
 
-      case 'save_draft':
+      case 'manage_draft':
+        final actionType = action.parameters['action'] as String?;
         final content = action.parameters['content'] as String?;
         final title = action.parameters['title'] as String?;
-        if (content != null) {
-          final creation = context.read<CreationProvider>();
+        final draftId = action.parameters['draft_id'] as int?;
+
+        final creation = context.read<CreationProvider>();
+
+        if (actionType == 'save' && content != null) {
           creation.setCaption('inspire', content);
           await creation.saveDraft(title: title);
-        }
-        break;
-
-      case 'get_drafts':
-        router.go(
-          '/home',
-        ); // Navigate to home where recent activity shows drafts
-        break;
-
-      case 'publish_draft':
-        final draftId = action.parameters['draft_id'] as int?;
-        if (draftId != null) {
-          final creation = context.read<CreationProvider>();
+        } else if (actionType == 'publish' && draftId != null) {
           await creation.publishDraft(draftId);
-        }
-        break;
-
-      case 'delete_draft':
-        final draftId = action.parameters['draft_id'] as int?;
-        if (draftId != null) {
-          final creation = context.read<CreationProvider>();
+        } else if (actionType == 'delete' && draftId != null) {
           await creation.deleteDraft(draftId);
         }
         break;
 
-      // ===== POST INTERACTIONS =====
-      case 'like_post':
+      // ===== INTERACTIONS =====
+      case 'interact_with_post':
+        final actionType = action.parameters['action'] as String?;
         final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
-          final inspire = context.read<InspireProvider>();
+        final content = action.parameters['content'] as String?;
+
+        if (postId == null) break;
+
+        final inspire = context.read<InspireProvider>();
+
+        if (actionType == 'like') {
           await inspire.likePost(postId);
-        }
-        break;
-
-      case 'save_post':
-        final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
-          final inspire = context.read<InspireProvider>();
+        } else if (actionType == 'save') {
           await inspire.savePost(postId);
-        }
-        break;
-
-      case 'unsave_post':
-        final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
-          final inspire = context.read<InspireProvider>();
+        } else if (actionType == 'unsave') {
           await inspire.unsavePost(postId);
-        }
-        break;
-
-      case 'delete_post':
-        final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
-          final inspire = context.read<InspireProvider>();
+        } else if (actionType == 'delete') {
           await inspire.deletePost(postId);
-        }
-        break;
-
-      case 'add_comment':
-        // Navigate to post detail - actual comment would be added there
-        final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
-          // Would need to fetch post first or pass minimal info
-          debugPrint('Add comment to post $postId');
-        }
-        break;
-
-      case 'share_post':
-        final postId = action.parameters['post_id'] as int?;
-        if (postId != null) {
+        } else if (actionType == 'share') {
           router.push('/chats/share', extra: {'postId': postId});
+        } else if (actionType == 'comment') {
+          // Navigate to post detail for commenting
+          // In a real implementation we might auto-fill the comment box
+          debugPrint('Add comment to post $postId: $content');
         }
         break;
 
       // ===== SOCIAL =====
+      case 'manage_relationship':
+        final actionType = action.parameters['action'] as String?;
+        final userId = action.parameters['user_id'] as int?;
+
+        if (userId != null) {
+          final social = context.read<SocialProvider>();
+          if (actionType == 'follow') {
+            await social.followUser(userId);
+          } else if (actionType == 'unfollow') {
+            await social.unfollowUser(userId);
+          }
+        }
+        break;
+
       case 'search_users':
-        // Navigate to search screen
         router.push('/search');
         break;
 
@@ -327,38 +305,7 @@ class AgentProvider extends ChangeNotifier {
         }
         break;
 
-      case 'follow_user':
-        final userId = action.parameters['user_id'] as int?;
-        if (userId != null) {
-          final social = context.read<SocialProvider>();
-          await social.followUser(userId);
-        }
-        break;
-
-      case 'unfollow_user':
-        final userId = action.parameters['user_id'] as int?;
-        if (userId != null) {
-          final social = context.read<SocialProvider>();
-          await social.unfollowUser(userId);
-        }
-        break;
-
-      // ===== FEED =====
-      case 'refresh_feed':
-        final inspire = context.read<InspireProvider>();
-        await inspire.loadFeed(refresh: true);
-        router.go('/inspire');
-        break;
-
-      case 'get_my_posts':
-        router.go('/profile');
-        break;
-
-      case 'get_saved_posts':
-        router.push('/saved-posts');
-        break;
-
-      // ===== SETTINGS =====
+      // ===== SETTINGS & EXTRAS =====
       case 'change_theme':
         final mode = action.parameters['mode'] as String?;
         if (mode != null) {
@@ -395,24 +342,16 @@ class AgentProvider extends ChangeNotifier {
         router.go('/');
         break;
 
-      // ===== NOTIFICATIONS =====
-      case 'get_notifications':
-        router.push('/notifications');
-        break;
-
       case 'mark_notifications_read':
         final notifications = context.read<NotificationProvider>();
         await notifications.markAllAsRead();
         break;
 
-      // ===== CONTENT GENERATION =====
       case 'generate_caption':
-        // Navigate to create flow - AI will assist there
         router.go('/create/write-text');
         break;
 
       case 'suggest_hashtags':
-        // This would be handled inline in the create flow
         break;
 
       default:
