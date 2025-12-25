@@ -5,34 +5,34 @@ import Image from 'next/image'
 
 const screenshots = [
     {
-        src: '/screenshot-inspire-feed.jpg',
-        alt: 'Inspire Feed Screen',
-        title: 'Discover & Get Inspired',
-        description: 'Browse trending content from the creator community',
+        src: '/screenshot-home.jpg',
+        alt: 'Home Screen',
+        title: 'Home Feed',
+        description: 'Stay updated with your world',
     },
     {
         src: '/screenshot-create-post.jpg',
-        alt: 'Create Post Screen',
-        title: 'Create with AI',
-        description: 'Craft perfect posts with AI-powered suggestions',
+        alt: 'Select Media Screen',
+        title: 'Select Media',
+        description: 'Choose photos or videos to share',
     },
     {
-        src: '/screenshot-ai-enhance.jpg',
-        alt: 'AI Enhancement Screen',
-        title: 'AI Enhancement',
-        description: 'Let AI optimize your content for maximum engagement',
+        src: '/screenshot-craft.jpg',
+        alt: 'Write Text Screen',
+        title: 'Write Text',
+        description: 'Add captions and hashtags',
     },
     {
-        src: '/screenshot-platforms.jpg',
-        alt: 'Platform Selection',
-        title: 'Multi-Platform',
-        description: 'Publish to multiple platforms with one tap',
+        src: '/screenshot-review.jpg',
+        alt: 'Review Screen',
+        title: 'Review',
+        description: 'Preview before publishing',
     },
     {
         src: '/screenshot-profile-new.jpg',
         alt: 'Profile Screen',
         title: 'Your Profile',
-        description: 'Manage your content and track your growth',
+        description: 'Manage your content and portfolio',
     },
 ]
 

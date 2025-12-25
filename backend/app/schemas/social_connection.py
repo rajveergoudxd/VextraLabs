@@ -46,8 +46,10 @@ class OAuthAuthorizeResponse(BaseModel):
 
 class OAuthCallbackRequest(BaseModel):
     """Request for OAuth callback"""
-    code: str
-    state: str
+    code: Optional[str] = None
+    state: Optional[str] = None
+    oauth_token: Optional[str] = None
+    oauth_verifier: Optional[str] = None
 
 
 class PublishRequest(BaseModel):

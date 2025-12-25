@@ -29,7 +29,7 @@ class InstagramService(BaseSocialService):
     def platform_name(self) -> str:
         return "instagram"
 
-    def get_authorization_url(self, state: str) -> str:
+    async def get_authorization_url(self, state: str) -> Dict[str, Any]:
         """Generate Meta OAuth authorization URL"""
         params = {
             "client_id": settings.META_APP_ID,
@@ -38,7 +38,7 @@ class InstagramService(BaseSocialService):
             "response_type": "code",
             "state": state,
         }
-        return f"{self.OAUTH_BASE}?{urlencode(params)}"
+        return {"url": f"{self.OAUTH_BASE}?{urlencode(params)}"}
 
     async def exchange_code_for_token(
         self, 

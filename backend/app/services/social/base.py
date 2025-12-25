@@ -17,7 +17,7 @@ class BaseSocialService(ABC):
         pass
 
     @abstractmethod
-    def get_authorization_url(self, state: str) -> str:
+    async def get_authorization_url(self, state: str) -> Dict[str, Any]:
         """
         Generate the OAuth authorization URL for user consent.
         

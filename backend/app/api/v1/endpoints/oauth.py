@@ -87,13 +87,24 @@ async def authorize(
     service = SERVICES[platform]
     state = secrets.token_urlsafe(32)
     
-    # Store state with user info (in production, use Redis with expiry)
+    # Store state with user info
     OAUTH_STATES[state] = {
         "user_id": current_user.id,
         "platform": platform,
     }
     
-    authorization_url = service.get_authorization_url(state)
+    auth_data = await service.get_authorization_url(state)
+    
+    if isinstance(auth_data, dict):
+        authorization_url = auth_data["url"]
+        # Store secret if present (for OAuth 1.0a)
+        if "oauth_token_secret" in auth_data:
+            OAUTH_STATES[state]["request_secret"] = auth_data["oauth_token_secret"]
+            # Alias for OAuth 1.0a callbacks which might only have oauth_token
+            if "oauth_token" in auth_data:
+                OAUTH_STATES[auth_data["oauth_token"]] = OAUTH_STATES[state]
+    else:
+        authorization_url = auth_data
     
     return OAuthAuthorizeResponse(
         authorization_url=authorization_url,
@@ -115,7 +126,17 @@ async def callback(
         )
     
     # Verify state
-    state_data = OAUTH_STATES.pop(request.state, None)
+    # Try state first, then oauth_token (for OAuth 1.0a)
+    state_key = request.state
+    if not state_key and request.oauth_token:
+        state_key = request.oauth_token
+        
+    state_data = OAUTH_STATES.pop(state_key, None)
+    
+    # If not found, try looking up by oauth_token explicitly if state was sent but invalid
+    if not state_data and request.oauth_token:
+        state_data = OAUTH_STATES.pop(request.oauth_token, None)
+        
     if not state_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -135,6 +156,9 @@ async def callback(
         token_data = await service.exchange_code_for_token(
             code=request.code,
             state=request.state,
+            oauth_verifier=request.oauth_verifier,
+            oauth_token=request.oauth_token,
+            request_secret=state_data.get("request_secret"),
         )
     except Exception as e:
         raise HTTPException(

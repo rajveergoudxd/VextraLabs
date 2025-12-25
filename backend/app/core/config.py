@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -28,10 +29,16 @@ class Settings(BaseSettings):
     META_APP_SECRET: str = ""
     META_REDIRECT_URI: str = ""
 
-    # OAuth - Twitter/X
     TWITTER_CLIENT_ID: str = ""
     TWITTER_CLIENT_SECRET: str = ""
-    TWITTER_REDIRECT_URI: str = ""
+    TWITTER_REDIRECT_URI: str = Field("", alias="TWITTER_CALLBACK_URI")
+    
+    # OAuth - Twitter/X (Legacy/OAuth 1.0a & App Context)
+    TWITTER_API_KEY: str = ""
+    TWITTER_API_KEY_SECRET: str = ""
+    TWITTER_ACCESS_TOKEN: str = ""
+    TWITTER_ACCESS_TOKEN_SECRET: str = ""
+    TWITTER_BEARER_TOKEN: str = ""
 
     # OAuth - LinkedIn
     LINKEDIN_CLIENT_ID: str = ""

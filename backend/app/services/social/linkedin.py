@@ -30,7 +30,7 @@ class LinkedInService(BaseSocialService):
     def platform_name(self) -> str:
         return "linkedin"
 
-    def get_authorization_url(self, state: str) -> str:
+    async def get_authorization_url(self, state: str) -> Dict[str, Any]:
         """Generate LinkedIn OAuth authorization URL"""
         params = {
             "response_type": "code",
@@ -39,7 +39,7 @@ class LinkedInService(BaseSocialService):
             "scope": " ".join(self.SCOPES),
             "state": state,
         }
-        return f"{self.OAUTH_BASE}/authorization?{urlencode(params)}"
+        return {"url": f"{self.OAUTH_BASE}/authorization?{urlencode(params)}"}
 
     async def exchange_code_for_token(
         self, 
