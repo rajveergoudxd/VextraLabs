@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/settings_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -208,6 +209,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       SnackBar(
                                         content: Text(settingsProvider.error!),
                                         backgroundColor: Colors.red,
+                                        action: SnackBarAction(
+                                          label: 'Settings',
+                                          textColor: Colors.white,
+                                          onPressed: () => openAppSettings(),
+                                        ),
+                                        duration: const Duration(seconds: 4),
                                       ),
                                     );
                                   }
