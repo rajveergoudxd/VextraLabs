@@ -2194,7 +2194,8 @@ section {
 @media (max-width: 768px) {
 
   .nav-links,
-  .nav-cta {
+  .nav-cta,
+  .nav-cta-btn {
     display: none;
   }
 

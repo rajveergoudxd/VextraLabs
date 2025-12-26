@@ -38,7 +38,7 @@ export const hero = {
     titleHighlight: 'everywhere.',
     subtitle: brand.description,
     cta: {
-        primary: { label: 'Download Vextra', href: '/app-arm64-v8a-release.apk', download: true },
+        primary: { label: 'Download Vextra', href: '/#download', download: false },
         secondary: { label: 'Learn More', href: '/#features' },
     },
     pledge: brand.shortDescription,
