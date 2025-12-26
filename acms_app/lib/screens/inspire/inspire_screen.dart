@@ -15,15 +15,7 @@ class InspireScreen extends StatefulWidget {
 }
 
 class _InspireScreenState extends State<InspireScreen> {
-  int _selectedFilter = 0;
   final ScrollController _scrollController = ScrollController();
-  final List<String> _filters = [
-    'For You',
-    'Following',
-    'Trending',
-    'Design',
-    'AI Art',
-  ];
 
   @override
   void initState() {
@@ -188,49 +180,6 @@ class _InspireScreenState extends State<InspireScreen> {
               ],
             ),
           ),
-
-          // Filter Tabs
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filters.length,
-              itemBuilder: (context, index) {
-                final isSelected = _selectedFilter == index;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedFilter = index),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isDark ? Colors.white : Colors.grey[900])
-                            : (isDark ? Colors.grey[800] : Colors.grey[100]),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        _filters[index],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? (isDark ? Colors.grey[900] : Colors.white)
-                              : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
         ],
       ),
     );
