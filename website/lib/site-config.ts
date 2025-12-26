@@ -231,6 +231,7 @@ export const team = {
             name: 'Shivani Gupta',
             role: 'Developer',
             linkedin: 'https://www.linkedin.com/in/shivanigupta2620/',
+            image: '/shivani.jpeg',
         },
     ],
 } as const;
