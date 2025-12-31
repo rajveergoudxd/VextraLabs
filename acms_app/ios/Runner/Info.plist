@@ -57,5 +57,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- OAuth Custom URL Scheme for flutter_web_auth_2 -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>vextra</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.vextralabs.vextra</string>
+		</dict>
+	</array>
 </dict>
 </plist>

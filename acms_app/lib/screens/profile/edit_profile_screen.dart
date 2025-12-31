@@ -4,10 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:acms_app/providers/auth_provider.dart';
 import 'package:acms_app/providers/social_connections_provider.dart';
-import 'package:acms_app/screens/profile/oauth_webview_screen.dart';
-import 'package:acms_app/core/config.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'dart:io';
 
 class EditProfileScreen extends StatefulWidget {
@@ -650,73 +649,103 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final authResponse = await provider.getAuthorizationUrl(platform);
 
       if (authResponse != null) {
-        // Construct the redirect URI that the backend expects
-        final redirectUri = '${Config.baseUrl}/oauth/$platform/callback';
+        // The callback URL that the backend will redirect to after OAuth
+        // This is a deep link that the app will catch
+        final callbackUrlScheme = 'vextra';
 
-        // Navigate to OAuth WebView screen
-        if (mounted) {
-          final result = await Navigator.of(context).push<OAuthResult>(
-            MaterialPageRoute(
-              builder: (context) => OAuthWebViewScreen(
-                platform: platform,
-                authorizationUrl: authResponse.authorizationUrl,
-                redirectUri: redirectUri,
-                state: authResponse.state,
-              ),
+        String? code;
+        String? state;
+
+        // Use system browser for OAuth (required for Twitter, Google sign-in on Twitter)
+        // flutter_web_auth_2 uses Chrome Custom Tabs (Android) or ASWebAuthenticationSession (iOS)
+        try {
+          final resultUrl = await FlutterWebAuth2.authenticate(
+            url: authResponse.authorizationUrl,
+            callbackUrlScheme: callbackUrlScheme,
+            options: const FlutterWebAuth2Options(
+              preferEphemeral: true, // Don't persist cookies/session
+              timeout: 120, // 2 minute timeout
             ),
           );
 
-          // Handle the OAuth result
-          if (result != null && mounted) {
-            // Show loading indicator
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Text('Connecting account...'),
-                  ],
+          // Parse the callback URL to extract code and state
+          final uri = Uri.parse(resultUrl);
+          code = uri.queryParameters['code'];
+          state = uri.queryParameters['state'];
+
+          // Check for errors
+          final error = uri.queryParameters['error'];
+          if (error != null) {
+            final errorDesc = uri.queryParameters['error_description'] ?? error;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Authorization failed: $errorDesc'),
+                  backgroundColor: Colors.red,
                 ),
-                duration: Duration(seconds: 10),
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          // If flutter_web_auth_2 fails (e.g., user cancelled), show error
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Authorization cancelled or failed: $e'),
+                backgroundColor: Colors.orange,
               ),
             );
+          }
+          return;
+        }
 
-            // Send the code to the backend
-            final success = await provider.handleCallback(
-              platform,
-              result.code,
-              result.state,
-            );
+        // Handle the OAuth result
+        if (code != null && state != null && mounted) {
+          // Show loading indicator
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text('Connecting account...'),
+                ],
+              ),
+              duration: Duration(seconds: 10),
+            ),
+          );
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '${platform[0].toUpperCase()}${platform.substring(1)} connected successfully!',
-                    ),
-                    backgroundColor: Colors.green,
+          // Send the code to the backend
+          final success = await provider.handleCallback(platform, code, state);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${platform[0].toUpperCase()}${platform.substring(1)} connected successfully!',
                   ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Failed to connect: ${provider.error ?? "Unknown error"}',
-                    ),
-                    backgroundColor: Colors.red,
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Failed to connect: ${provider.error ?? "Unknown error"}',
                   ),
-                );
-              }
+                  backgroundColor: Colors.red,
+                ),
+              );
             }
           }
         }

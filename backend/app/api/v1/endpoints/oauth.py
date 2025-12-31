@@ -2,7 +2,8 @@
 OAuth and Social Connection API endpoints.
 Handles OAuth flow and managing social platform connections.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from typing import List
 import secrets
@@ -210,6 +211,115 @@ async def callback(
         "platform": platform,
         "username": connection.platform_username,
     }
+
+
+@router.get("/{platform}/callback", response_class=HTMLResponse)
+async def callback_redirect(
+    platform: str,
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
+    # OAuth 1.0a parameters (fallback)
+    oauth_token: str = Query(None),
+    oauth_verifier: str = Query(None),
+):
+    """
+    Handle OAuth callback from browser redirect (GET request from OAuth provider).
+    Redirects to the mobile app's custom URL scheme with the authorization code.
+    This allows using system browser for OAuth instead of WebView.
+    """
+    # Build the app redirect URL
+    app_scheme = "vextra"
+    callback_path = f"oauth/{platform}/callback"
+    
+    # Handle OAuth error
+    if error:
+        error_msg = error_description or error
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authorization Failed</title>
+            <meta http-equiv="refresh" content="0;url={app_scheme}://{callback_path}?error={error}&error_description={error_msg}" />
+            <style>
+                body {{ font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 50px; }}
+                h1 {{ color: #e53e3e; }}
+            </style>
+        </head>
+        <body>
+            <h1>Authorization Failed</h1>
+            <p>{error_msg}</p>
+            <p>Redirecting to app...</p>
+            <script>window.location.href = "{app_scheme}://{callback_path}?error={error}&error_description={error_msg}";</script>
+        </body>
+        </html>
+        """)
+    
+    # Handle OAuth 2.0 callback (Twitter, LinkedIn, etc.)
+    if code and state:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authorization Successful</title>
+            <meta http-equiv="refresh" content="0;url={app_scheme}://{callback_path}?code={code}&state={state}" />
+            <style>
+                body {{ font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 50px; }}
+                h1 {{ color: #38a169; }}
+                .spinner {{ border: 4px solid #f3f3f3; border-top: 4px solid #38a169; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }}
+                @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+            </style>
+        </head>
+        <body>
+            <h1>Authorization Successful</h1>
+            <div class="spinner"></div>
+            <p>Redirecting to Vextra app...</p>
+            <p style="color: #888; font-size: 14px;">If the app doesn't open automatically, <a href="{app_scheme}://{callback_path}?code={code}&state={state}">click here</a>.</p>
+            <script>window.location.href = "{app_scheme}://{callback_path}?code={code}&state={state}";</script>
+        </body>
+        </html>
+        """)
+    
+    # Handle OAuth 1.0a callback (some legacy platforms)
+    if oauth_token and oauth_verifier:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authorization Successful</title>
+            <meta http-equiv="refresh" content="0;url={app_scheme}://{callback_path}?oauth_token={oauth_token}&oauth_verifier={oauth_verifier}" />
+            <style>
+                body {{ font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 50px; }}
+                h1 {{ color: #38a169; }}
+            </style>
+        </head>
+        <body>
+            <h1>Authorization Successful</h1>
+            <p>Redirecting to Vextra app...</p>
+            <script>window.location.href = "{app_scheme}://{callback_path}?oauth_token={oauth_token}&oauth_verifier={oauth_verifier}";</script>
+        </body>
+        </html>
+        """)
+    
+    # No valid parameters received
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Invalid Callback</title>
+        <style>
+            body {{ font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 50px; }}
+            h1 {{ color: #e53e3e; }}
+        </style>
+    </head>
+    <body>
+        <h1>Invalid Callback</h1>
+        <p>No authorization code received. Please try again.</p>
+        <a href="{app_scheme}://{callback_path}?error=invalid_callback">Return to app</a>
+    </body>
+    </html>
+    """, status_code=400)
 
 
 @router.delete("/{platform}/disconnect")

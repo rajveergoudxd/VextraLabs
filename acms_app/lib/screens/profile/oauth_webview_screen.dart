@@ -41,9 +41,15 @@ class _OAuthWebViewScreenState extends State<OAuthWebViewScreen> {
   }
 
   void _initWebView() {
+    // Use a desktop Chrome User-Agent to bypass Twitter's WebView detection
+    // Twitter blocks mobile WebViews but allows desktop browsers
+    const desktopUserAgent =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
+      ..setUserAgent(desktopUserAgent)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
@@ -63,13 +69,23 @@ class _OAuthWebViewScreenState extends State<OAuthWebViewScreen> {
           },
           onWebResourceError: (WebResourceError error) {
             // Ignore errors for the redirect URL itself
-            if (!error.url.toString().startsWith(widget.redirectUri)) {
-              if (mounted) {
-                setState(() {
-                  _error = 'Failed to load: ${error.description}';
-                  _isLoading = false;
-                });
-              }
+            if (error.url != null &&
+                error.url.toString().startsWith(widget.redirectUri)) {
+              return;
+            }
+            // Ignore ORB errors (these are often false positives for OAuth flows)
+            final errorDesc = error.description.toLowerCase();
+            if (errorDesc.contains('orb') ||
+                errorDesc.contains('blocked') ||
+                errorDesc.contains('net::err')) {
+              debugPrint('OAuth WebView ignoring error: ${error.description}');
+              return;
+            }
+            if (mounted) {
+              setState(() {
+                _error = 'Failed to load: ${error.description}';
+                _isLoading = false;
+              });
             }
           },
           onNavigationRequest: (NavigationRequest request) {
