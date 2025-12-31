@@ -73,7 +73,7 @@ class _WriteTextScreenState extends State<WriteTextScreen> {
   }
 
   bool _isPlatformAvailable(String platform) =>
-      platform == 'Inspire' || platform == 'LinkedIn';
+      platform == 'Inspire' || platform == 'LinkedIn' || platform == 'Twitter';
 
   void _switchPlatform(String platform) {
     if (!_isPlatformAvailable(platform)) {

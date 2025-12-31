@@ -112,7 +112,9 @@ class _UploadMediaScreenState extends State<UploadMediaScreen> {
 
   /// Check if platform is available
   bool _isPlatformAvailable(String platform) {
-    return platform == 'Instagram' || platform == 'LinkedIn';
+    return platform == 'Instagram' ||
+        platform == 'LinkedIn' ||
+        platform == 'Twitter';
   }
 
   /// Handle platform tab tap

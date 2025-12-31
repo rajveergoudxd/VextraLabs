@@ -26,7 +26,7 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
   ];
 
   bool _isPlatformAvailable(String platform) =>
-      platform == 'Inspire' || platform == 'LinkedIn';
+      platform == 'Inspire' || platform == 'LinkedIn' || platform == 'Twitter';
 
   @override
   void initState() {

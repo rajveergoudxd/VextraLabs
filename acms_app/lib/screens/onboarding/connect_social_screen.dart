@@ -104,7 +104,6 @@ class ConnectSocialScreen extends StatelessWidget {
                       color: isDark ? Colors.white : Colors.black,
                       iconColor: isDark ? Colors.black : Colors.white,
                       isDark: isDark,
-                      comingSoon: true,
                     ),
                     const SizedBox(height: 12),
                     _buildSocialItem(

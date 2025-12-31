@@ -253,7 +253,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isDark,
               onConnect: () => _showConnectDialog('Twitter'),
               onDisconnect: () => _disconnectPlatform('twitter'),
-              comingSoon: true,
             ),
             _buildPlatformCard(
               'Facebook',
