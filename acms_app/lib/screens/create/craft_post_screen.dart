@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 
@@ -27,6 +28,24 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
 
   bool _isPlatformAvailable(String platform) =>
       platform == 'Inspire' || platform == 'LinkedIn' || platform == 'Twitter';
+
+  /// Get the correct icon for each platform (using FontAwesome for brand icons)
+  Widget _getPlatformIcon(String platform, Color color, double size) {
+    switch (platform) {
+      case 'Inspire':
+        return Icon(Icons.auto_awesome, color: color, size: size);
+      case 'LinkedIn':
+        return FaIcon(FontAwesomeIcons.linkedin, color: color, size: size);
+      case 'Instagram':
+        return FaIcon(FontAwesomeIcons.instagram, color: color, size: size);
+      case 'Facebook':
+        return FaIcon(FontAwesomeIcons.facebook, color: color, size: size);
+      case 'Twitter':
+        return FaIcon(FontAwesomeIcons.xTwitter, color: color, size: size);
+      default:
+        return Icon(Icons.public, color: color, size: size);
+    }
+  }
 
   @override
   void initState() {
@@ -439,22 +458,6 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
   }
 
   Widget _buildPlatformTab(String title) {
-    // Basic mapping for icons
-    IconData icon;
-    if (title == 'Inspire') {
-      icon = Icons.auto_awesome;
-    } else if (title == 'Instagram') {
-      icon = Icons.camera_alt;
-    } else if (title == 'Facebook') {
-      icon = Icons.public;
-    } else if (title == 'Twitter') {
-      icon = Icons.flutter_dash;
-    } else if (title == 'LinkedIn') {
-      icon = Icons.business_center;
-    } else {
-      icon = Icons.public;
-    }
-
     final isActive = _activePlatform == title;
     final isAvailable = _isPlatformAvailable(title);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -494,7 +497,7 @@ class _CraftPostScreenState extends State<CraftPostScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(icon, color: iconColor, size: 20),
+                _getPlatformIcon(title, iconColor, 20),
                 // "Soon" badge for unavailable platforms
                 if (!isAvailable)
                   Positioned(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/theme/app_theme.dart';
 
 class ConnectSocialScreen extends StatelessWidget {
@@ -71,7 +72,7 @@ class ConnectSocialScreen extends StatelessWidget {
                       context,
                       name: 'Instagram',
                       desc: 'Post & Stories',
-                      icon: Icons.camera_alt,
+                      icon: FontAwesomeIcons.instagram,
                       gradient: const LinearGradient(
                         colors: [
                           Color(0xFFfacc15),
@@ -89,7 +90,7 @@ class ConnectSocialScreen extends StatelessWidget {
                       context,
                       name: 'Facebook',
                       desc: 'Pages & Groups',
-                      icon: Icons.public,
+                      icon: FontAwesomeIcons.facebook,
                       color: const Color(0xFF1877F2),
                       isDark: isDark,
                       comingSoon: true,
@@ -99,8 +100,7 @@ class ConnectSocialScreen extends StatelessWidget {
                       context,
                       name: 'X (Twitter)',
                       desc: 'Tweets & Threads',
-                      icon:
-                          Icons.close, // Using close as X placeholder or custom
+                      icon: FontAwesomeIcons.xTwitter,
                       color: isDark ? Colors.white : Colors.black,
                       iconColor: isDark ? Colors.black : Colors.white,
                       isDark: isDark,
@@ -110,7 +110,7 @@ class ConnectSocialScreen extends StatelessWidget {
                       context,
                       name: 'LinkedIn',
                       desc: 'Personal & Company',
-                      icon: Icons.business_center,
+                      icon: FontAwesomeIcons.linkedin,
                       color: const Color(0xFF0077b5),
                       isDark: isDark,
                     ),
@@ -253,7 +253,11 @@ class ConnectSocialScreen extends StatelessWidget {
                 gradient: gradient,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: iconColor, size: 28),
+              child: Center(
+                child: icon.fontFamily?.contains('FontAwesome') == true
+                    ? FaIcon(icon, color: iconColor, size: 28)
+                    : Icon(icon, color: iconColor, size: 28),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(

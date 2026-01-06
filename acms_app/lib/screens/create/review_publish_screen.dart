@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'dart:io';
 
-class ReviewPublishScreen extends StatelessWidget {
+class ReviewPublishScreen extends StatefulWidget {
   const ReviewPublishScreen({super.key});
 
+  @override
+  State<ReviewPublishScreen> createState() => _ReviewPublishScreenState();
+}
+
+class _ReviewPublishScreenState extends State<ReviewPublishScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -18,7 +24,6 @@ class ReviewPublishScreen extends StatelessWidget {
     final selectedMedia = creationProvider.selectedMedia;
 
     // Default image if none selected (shouldn't happen in manual flow if guarded correctly)
-    // Default image if none selected (shouldn't happen in manual flow if guarded correctly)
     // For manual text-only posts, this can be null.
     final displayImage = selectedMedia.isNotEmpty
         ? selectedMedia.first
@@ -26,7 +31,7 @@ class ReviewPublishScreen extends StatelessWidget {
               ? null
               : "https://lh3.googleusercontent.com/aida-public/AB6AXuCNMaqYoRJ9KyycTlyzur1QQZ5ZbkhWh4vbPkS3hpwf3Fi8p0dwT5HL6g_ruqCTYO7jiVcHBx2BdlaJ7pVS0YDPDfcRS6tD_L65i1DQoAv98D9iqwAnROFN4qU4lp5HpsPdI_RVIqjCS-ZxGPjYpk77cB0ovfyvEWwRpznWeZe1i2_7wYs2tGBt7DUJTfVvgGCyCk-IVz1rrxbGEHmL8bubYWdDgRacEFHWoUths9575rnYpofgGBhJRA8sEA4InJxUe8OVoJCTfcc");
 
-    // Platforms to show (only Inspire and LinkedIn for now)
+    // Platforms to show (Inspire, LinkedIn, and Twitter/X)
     final allPlatforms = [
       {
         'name': 'Inspire',
@@ -36,8 +41,14 @@ class ReviewPublishScreen extends StatelessWidget {
       },
       {
         'name': 'LinkedIn',
-        'icon': Icons.business_center,
+        'icon': FontAwesomeIcons.linkedin,
         'color': const Color(0xFF0077b5),
+      },
+      {
+        'name': 'X (Twitter)',
+        'icon': FontAwesomeIcons.xTwitter,
+        'color': isDark ? Colors.white : Colors.black,
+        'darkIcon': true,
       },
     ];
 
@@ -338,11 +349,21 @@ class ReviewPublishScreen extends StatelessWidget {
                         : (darkIcon && isDark ? Colors.white : color),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    icon,
-                    color: darkIcon && isDark ? Colors.black : Colors.white,
-                    size: 16,
-                  ),
+                  child: icon.fontFamily?.contains('FontAwesome') == true
+                      ? FaIcon(
+                          icon,
+                          color: darkIcon && isDark
+                              ? Colors.black
+                              : Colors.white,
+                          size: 16,
+                        )
+                      : Icon(
+                          icon,
+                          color: darkIcon && isDark
+                              ? Colors.black
+                              : Colors.white,
+                          size: 16,
+                        ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

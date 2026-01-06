@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
@@ -224,6 +225,10 @@ class _WriteTextScreenState extends State<WriteTextScreen> {
     if (_isPlatformAvailable('Inspire') &&
         (provider.captions['Inspire']?.isEmpty ?? true)) {
       provider.setCaption('Inspire', _textController.text);
+    }
+    if (_isPlatformAvailable('Twitter') &&
+        (provider.captions['Twitter']?.isEmpty ?? true)) {
+      provider.setCaption('Twitter', _textController.text);
     }
 
     context.push('/create/review');
@@ -609,23 +614,25 @@ class _WriteTextScreenState extends State<WriteTextScreen> {
     );
   }
 
-  Widget _buildPlatformTab(String platform, bool isDark) {
-    // Basic mapping for icons
-    IconData icon;
-    if (platform == 'Inspire') {
-      icon = Icons.auto_awesome;
-    } else if (platform == 'Instagram') {
-      icon = Icons.camera_alt;
-    } else if (platform == 'Facebook') {
-      icon = Icons.public;
-    } else if (platform == 'Twitter') {
-      icon = Icons.flutter_dash;
-    } else if (platform == 'LinkedIn') {
-      icon = Icons.business_center;
-    } else {
-      icon = Icons.public;
+  /// Get the correct icon for each platform (using FontAwesome for brand icons)
+  Widget _getPlatformIcon(String platform, Color color, double size) {
+    switch (platform) {
+      case 'Inspire':
+        return Icon(Icons.auto_awesome, color: color, size: size);
+      case 'LinkedIn':
+        return FaIcon(FontAwesomeIcons.linkedin, color: color, size: size);
+      case 'Instagram':
+        return FaIcon(FontAwesomeIcons.instagram, color: color, size: size);
+      case 'Facebook':
+        return FaIcon(FontAwesomeIcons.facebook, color: color, size: size);
+      case 'Twitter':
+        return FaIcon(FontAwesomeIcons.xTwitter, color: color, size: size);
+      default:
+        return Icon(Icons.public, color: color, size: size);
     }
+  }
 
+  Widget _buildPlatformTab(String platform, bool isDark) {
     final isActive = _activePlatform == platform;
     final isAvailable = _isPlatformAvailable(platform);
 
@@ -663,7 +670,7 @@ class _WriteTextScreenState extends State<WriteTextScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(icon, color: iconColor, size: 20),
+                _getPlatformIcon(platform, iconColor, 20),
                 if (!isAvailable)
                   Positioned(
                     right: -20,
