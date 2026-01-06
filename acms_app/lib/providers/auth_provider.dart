@@ -86,6 +86,7 @@ class AuthProvider extends ChangeNotifier {
 
   // Storage keys
   static const String _tokenKey = 'access_token';
+  static const String _refreshTokenKey = 'refresh_token';
   static const String _userCacheKey = 'cached_user_data';
 
   User? _user;
@@ -234,7 +235,11 @@ class AuthProvider extends ChangeNotifier {
     try {
       final data = await _authService.login(email, password);
       final token = data['access_token'];
+      final refreshToken = data['refresh_token'];
       await _storage.write(key: _tokenKey, value: token);
+      if (refreshToken != null) {
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+      }
       await _fetchAndCacheUser();
       _isOffline = false;
       _setLoading(false);
@@ -352,6 +357,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _refreshTokenKey);
     await _clearCachedUser();
     _user = null;
     _isOffline = false;

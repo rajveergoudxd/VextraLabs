@@ -8,7 +8,8 @@ from app.core import security
 from app.core.config import settings
 from app.models.user import User as UserModel
 from app.models.otp import OTP as OTPModel
-from app.schemas.user import User, UserCreate, Token
+from app.models.refresh_token import RefreshToken as RefreshTokenModel
+from app.schemas.user import User, UserCreate, Token, TokenRefresh, TokenRefreshResponse
 from app.schemas.otp import OTPRequest, OTPVerify, PasswordReset
 from app.core.email import EmailService
 from datetime import datetime
@@ -22,22 +23,89 @@ def login_access_token(
     db: Session = Depends(deps.get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2 compatible token login, get an access token and refresh token for future requests
     """
     user = db.query(UserModel).filter(UserModel.email == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-        
+    
+    # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        user.id, expires_delta=access_token_expires
+    )
+    
+    # Create refresh token
+    refresh_token = security.create_refresh_token()
+    refresh_token_hash = security.hash_refresh_token(refresh_token)
+    refresh_token_expires = security.get_refresh_token_expiry()
+    
+    # Store refresh token in database
+    db_refresh_token = RefreshTokenModel(
+        user_id=user.id,
+        token_hash=refresh_token_hash,
+        expires_at=refresh_token_expires,
+    )
+    db.add(db_refresh_token)
+    db.commit()
+    
     return {
-        "access_token": security.create_access_token(
-            user.id, expires_delta=access_token_expires
-        ),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
     }
 
+
+@router.post("/refresh", response_model=TokenRefreshResponse)
+def refresh_access_token(
+    token_data: TokenRefresh,
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    Refresh access token using a valid refresh token.
+    Returns a new access token without requiring re-authentication.
+    """
+    # Hash the provided refresh token to compare with stored hash
+    token_hash = security.hash_refresh_token(token_data.refresh_token)
+    
+    # Find the refresh token in database
+    db_token = db.query(RefreshTokenModel).filter(
+        RefreshTokenModel.token_hash == token_hash,
+        RefreshTokenModel.revoked == False,
+    ).first()
+    
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+    
+    if not db_token.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+        )
+    
+    # Get the user
+    user = db.query(UserModel).filter(UserModel.id == db_token.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+    
+    # Create new access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        user.id, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post("/signup", response_model=User)

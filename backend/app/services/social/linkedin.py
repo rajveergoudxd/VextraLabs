@@ -44,7 +44,8 @@ class LinkedInService(BaseSocialService):
     async def exchange_code_for_token(
         self, 
         code: str, 
-        state: str
+        state: str,
+        **kwargs  # Accept extra params from unified callback handler
     ) -> Dict[str, Any]:
         """Exchange authorization code for access token"""
         async with httpx.AsyncClient() as client:
