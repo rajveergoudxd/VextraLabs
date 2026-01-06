@@ -17,6 +17,7 @@ from app.models.notification import Notification
 from app.models.like import Like
 from app.models.comment import Comment
 from app.models.saved_post import SavedPost
+from app.models.refresh_token import RefreshToken
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
