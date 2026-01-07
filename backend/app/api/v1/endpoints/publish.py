@@ -5,15 +5,14 @@ Publish content to connected social platforms.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.api import deps
 from app.models.user import User
 from app.models.social_connection import SocialConnection
 from app.models.post import Post  # Added import
 from app.schemas.social_connection import PublishRequest, PublishResponse
-from app.core.encryption import decrypt_token
-from app.core.encryption import decrypt_token
+from app.core.encryption import decrypt_token, encrypt_token
 from app.services.social import (
     InstagramService,
     TwitterService,
@@ -31,6 +30,48 @@ SERVICES = {
     "facebook": FacebookService(),
 }
 
+
+async def _refresh_platform_token(
+    connection: SocialConnection,
+    service,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Refresh a platform's access token.
+    
+    Twitter rotates refresh tokens - each refresh returns a new one.
+    This function handles the refresh and updates the database.
+    """
+    if not connection.refresh_token:
+        return {
+            "success": False, 
+            "error": "No refresh token available. Please reconnect your account."
+        }
+    
+    try:
+        refresh_token = decrypt_token(connection.refresh_token)
+        new_tokens = await service.refresh_access_token(refresh_token)
+        
+        # Update connection with new tokens
+        connection.access_token = encrypt_token(new_tokens["access_token"])
+        # Twitter rotates refresh tokens, so always update if provided
+        if new_tokens.get("refresh_token"):
+            connection.refresh_token = encrypt_token(new_tokens["refresh_token"])
+        connection.token_expires_at = new_tokens.get("expires_at")
+        connection.updated_at = datetime.utcnow()
+        db.commit()
+        
+        print(f"Token refreshed successfully for {connection.platform}")
+        return {
+            "success": True,
+            "access_token": new_tokens["access_token"]
+        }
+    except Exception as e:
+        print(f"Token refresh failed for {connection.platform}: {str(e)}")
+        return {
+            "success": False, 
+            "error": f"Token refresh failed: {str(e)}. Please reconnect your account."
+        }
 
 @router.post("/", response_model=PublishResponse)
 async def publish_content(
@@ -100,18 +141,31 @@ async def publish_content(
             }
             continue
         
-        # Check token expiry
-        if connection.token_expires_at and datetime.utcnow() >= connection.token_expires_at:
-            results[platform] = {
-                "success": False,
-                "error": "Token expired. Please reconnect your account."
-            }
-            continue
+        # Get the service for this platform
+        service = SERVICES[platform]
+        
+        # Check token expiry and auto-refresh if needed
+        access_token = None
+        if connection.token_expires_at:
+            # Refresh if expired or expiring within 5 minutes (buffer)
+            buffer = timedelta(minutes=5)
+            if datetime.utcnow() >= (connection.token_expires_at - buffer):
+                refresh_result = await _refresh_platform_token(connection, service, db)
+                if not refresh_result["success"]:
+                    results[platform] = {
+                        "success": False,
+                        "error": refresh_result["error"]
+                    }
+                    continue
+                # Token refreshed successfully, use new access token
+                access_token = refresh_result["access_token"]
+        
+        # If token wasn't refreshed, decrypt the current one
+        if access_token is None:
+            access_token = decrypt_token(connection.access_token)
         
         # Try to publish
-        service = SERVICES[platform]
         try:
-            access_token = decrypt_token(connection.access_token)
             result = await service.publish_post(
                 access_token=access_token,
                 content=request.content,

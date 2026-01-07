@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:acms_app/services/oauth_service.dart';
 
@@ -35,11 +36,66 @@ class SocialConnectionsProvider extends ChangeNotifier {
 
     try {
       _connections = await _oauthService.getConnections();
+      // Auto-refresh any expiring tokens (non-blocking)
+      _refreshExpiringTokensInBackground();
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Refresh tokens for connections that are expiring soon (10-minute buffer)
+  void _refreshExpiringTokensInBackground() async {
+    final now = DateTime.now();
+    final buffer = const Duration(minutes: 10);
+
+    for (final connection in _connections) {
+      if (connection.tokenExpiresAt != null) {
+        final expiresAt = connection.tokenExpiresAt!;
+        if (expiresAt.isBefore(now.add(buffer))) {
+          debugPrint(
+            'Auto-refreshing expiring token for ${connection.platform}',
+          );
+          final result = await _oauthService.refreshPlatformToken(
+            connection.platform,
+          );
+          if (!result.success) {
+            debugPrint(
+              'Failed to auto-refresh ${connection.platform}: ${result.error}',
+            );
+          }
+        }
+      }
+    }
+    // Reload connections to get updated token status
+    _connections = await _oauthService.getConnections();
+    notifyListeners();
+  }
+
+  /// Check if any tokens are expiring soon
+  bool get hasExpiringTokens {
+    final now = DateTime.now();
+    final buffer = const Duration(minutes: 10);
+    return _connections.any(
+      (c) =>
+          c.tokenExpiresAt != null &&
+          c.tokenExpiresAt!.isBefore(now.add(buffer)),
+    );
+  }
+
+  /// Manually refresh a specific platform's token
+  Future<bool> refreshPlatformToken(String platform) async {
+    try {
+      final result = await _oauthService.refreshPlatformToken(platform);
+      if (result.success) {
+        await loadConnections(); // Reload to get fresh data
+      }
+      return result.success;
+    } catch (e) {
+      debugPrint('Failed to refresh $platform token: $e');
+      return false;
     }
   }
 

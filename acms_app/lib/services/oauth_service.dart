@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Service for OAuth social platform authentication
@@ -117,6 +118,34 @@ class OAuthService {
       throw Exception('Failed to publish: $e');
     }
   }
+
+  /// Refresh access token for a platform (e.g., Twitter)
+  ///
+  /// Twitter tokens expire every 2 hours. This method refreshes the token
+  /// before it expires to prevent disconnection.
+  Future<RefreshResult> refreshPlatformToken(String platform) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final response = await _dio.post(
+        '/oauth/$platform/refresh',
+        options: Options(headers: headers),
+      );
+
+      final success = response.data['success'] == true;
+      final expiresAt = response.data['expires_at'] != null
+          ? DateTime.parse(response.data['expires_at'])
+          : null;
+
+      if (success) {
+        debugPrint('Token refreshed for $platform');
+      }
+
+      return RefreshResult(success: success, expiresAt: expiresAt);
+    } catch (e) {
+      debugPrint('Failed to refresh $platform token: $e');
+      return RefreshResult(success: false, error: e.toString());
+    }
+  }
 }
 
 /// Social connection model
@@ -191,4 +220,13 @@ class PublishResult {
       results: Map<String, dynamic>.from(json['results']),
     );
   }
+}
+
+/// Token refresh result model
+class RefreshResult {
+  final bool success;
+  final DateTime? expiresAt;
+  final String? error;
+
+  RefreshResult({required this.success, this.expiresAt, this.error});
 }
