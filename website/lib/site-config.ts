@@ -111,7 +111,7 @@ export const features = {
         },
         {
             icon: '💼',
-            title: 'LinkedIn and Twitter Publishing',
+            title: 'LinkedIn and X (Twitter) Publishing',
             description: 'Go specific, go viral. Seamless OAuth integration with LinkedIn and Twitter for instant publishing.',
         },
         {
@@ -189,6 +189,11 @@ export const roadmap = {
             icon: '📘',
             title: 'Facebook Integration',
             description: 'Manage your Facebook presence alongside other platforms.',
+        },
+        {
+            icon: '�',
+            title: 'Threads Integration',
+            description: 'Manage your Threads presence alongside other platforms.',
         },
     ],
 } as const;
