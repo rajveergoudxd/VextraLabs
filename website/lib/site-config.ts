@@ -111,8 +111,8 @@ export const features = {
         },
         {
             icon: '💼',
-            title: 'LinkedIn Publishing',
-            description: 'Go specific, go viral. Seamless OAuth integration with LinkedIn for instant publishing.',
+            title: 'LinkedIn and Twitter Publishing',
+            description: 'Go specific, go viral. Seamless OAuth integration with LinkedIn and Twitter for instant publishing.',
         },
         {
             icon: '💬',
@@ -186,11 +186,6 @@ export const roadmap = {
             description: 'Publish directly to Instagram with auto-formatting and hashtag suggestions.',
         },
         {
-            icon: '🐦',
-            title: 'X (Twitter) Integration',
-            description: 'Thread creation and scheduling for X coming soon.',
-        },
-        {
             icon: '📘',
             title: 'Facebook Integration',
             description: 'Manage your Facebook presence alongside other platforms.',
@@ -250,7 +245,7 @@ export const faq = {
         },
         {
             question: 'Which platforms does Vextra support?',
-            answer: 'Currently, Vextra supports publishing to LinkedIn and our built-in Inspire feed. Instagram, X (Twitter), and Facebook integrations are coming soon.',
+            answer: 'Currently, Vextra supports publishing to LinkedIn, X(formerly Twitter) and our built-in Inspire feed. Instagram, and Facebook integrations are coming soon.',
         },
         {
             question: 'Is my content secure?',
