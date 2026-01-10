@@ -250,7 +250,7 @@ export const faq = {
         },
         {
             question: 'Which platforms does Vextra support?',
-            answer: 'Currently, Vextra supports publishing to LinkedIn, X(formerly Twitter) and our built-in Inspire feed. Instagram, and Facebook integrations are coming soon.',
+            answer: 'Currently, Vextra supports publishing to LinkedIn, X(formerly Twitter) and our built-in Inspire feed. Instagram, and Facebook, and Threads integrations are coming soon.',
         },
         {
             question: 'Is my content secure?',
