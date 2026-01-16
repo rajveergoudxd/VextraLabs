@@ -35,7 +35,8 @@ def _get_credentials_path():
         
     # Possible locations for firebase_credentials.json
     possible_paths = [
-        # Cloud Run secret mount path (highest priority)
+        # Cloud Run secret mount path (highest priority) -> Observed in logs as missing .json extension
+        Path("/backend/firebase_credentials"),
         Path("/backend/firebase_credentials.json"),
         # Docker container common path
         Path("/code/firebase_credentials.json"),
