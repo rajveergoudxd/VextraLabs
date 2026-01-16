@@ -18,7 +18,9 @@ def _get_credentials_path():
     
     # Possible locations for firebase_credentials.json
     possible_paths = [
-        # In the backend root directory (most common)
+        # Cloud Run secret mount path (highest priority)
+        Path("/backend/firebase_credentials.json"),
+        # In the backend root directory (most common for local dev)
         module_dir.parent.parent.parent / "firebase_credentials.json",
         # In the current working directory
         Path("firebase_credentials.json"),
@@ -26,6 +28,8 @@ def _get_credentials_path():
         Path("../firebase_credentials.json"),
         # In the app directory
         module_dir.parent / "firebase_credentials.json",
+        # Docker container common path
+        Path("/code/firebase_credentials.json"),
     ]
     
     for path in possible_paths:
