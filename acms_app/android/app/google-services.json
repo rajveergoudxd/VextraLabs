@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "227479027850",
+    "project_id": "vextralabs-f7c41",
+    "storage_bucket": "vextralabs-f7c41.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:227479027850:android:fc22b4781e7adcc15ced73",
+        "android_client_info": {
+          "package_name": "com.android.vextra"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4j-YgEkf3aQup4gF2x7S9b5hRqhK2TOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
