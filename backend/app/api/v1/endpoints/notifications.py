@@ -218,6 +218,9 @@ def delete_notification(
 # This is used by other parts of the app to create notifications
 
 from app.services.fcm import send_push_notification
+import logging
+
+logger = logging.getLogger(__name__)
 
 def create_notification(
     db: Session,
@@ -234,6 +237,8 @@ def create_notification(
     Create a new notification.
     This helper function can be used by other endpoints (e.g., follow, like) to create notifications.
     """
+    logger.info(f"Creating notification: type={notification_type.value}, user_id={user_id}, title={title}")
+    
     notification = Notification(
         user_id=user_id,
         actor_id=actor_id,
@@ -249,23 +254,36 @@ def create_notification(
     db.commit()
     db.refresh(notification)
     
+    logger.info(f"Notification created: id={notification.id}")
+    
     # Send Push Notification
     try:
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
-        if user and user.fcm_token:
-            push_title = title or "Vextra"
-            send_push_notification(
-                token=user.fcm_token,
-                title=push_title,
-                body=message,
-                data={
-                    "type": str(notification_type.value),
-                    "related_id": str(related_id) if related_id else "",
-                    "notification_id": str(notification.id)
-                }
-            )
+        if user:
+            if user.fcm_token:
+                logger.info(f"User {user_id} has FCM token, sending push notification...")
+                push_title = title or "Vextra"
+                result = send_push_notification(
+                    token=user.fcm_token,
+                    title=push_title,
+                    body=message,
+                    data={
+                        "type": str(notification_type.value),
+                        "related_id": str(related_id) if related_id else "",
+                        "notification_id": str(notification.id)
+                    }
+                )
+                if result:
+                    logger.info(f"Push notification sent successfully for notification {notification.id}")
+                else:
+                    logger.warning(f"Push notification failed for notification {notification.id}")
+            else:
+                logger.warning(f"User {user_id} has no FCM token registered - push notification skipped")
+        else:
+            logger.warning(f"User {user_id} not found - push notification skipped")
     except Exception as e:
         # Don't fail the request if push fails
-        print(f"Failed to send push notification: {e}")
+        logger.error(f"Failed to send push notification: {e}")
     
     return notification
+
