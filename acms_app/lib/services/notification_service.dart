@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:acms_app/services/api_client.dart';
 
 /// Service for handling notification related API calls
@@ -53,9 +54,16 @@ class NotificationService {
 
   /// Update FCM token for push notifications
   Future<void> updateFcmToken(String token) async {
-    await _apiClient.dio.put(
-      '/users/fcm-token',
-      queryParameters: {'token': token},
-    );
+    try {
+      debugPrint('Sending FCM token to backend: ${token.substring(0, 20)}...');
+      final response = await _apiClient.dio.put(
+        '/users/fcm-token',
+        queryParameters: {'token': token},
+      );
+      debugPrint('FCM token updated successfully: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Error updating FCM token: $e');
+      // Don't rethrow - we don't want to break the app if token update fails
+    }
   }
 }
