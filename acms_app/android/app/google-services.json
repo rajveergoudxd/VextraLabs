@@ -7,28 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:227479027850:android:53fbcf4f6166a9d85ced73",
+        "mobilesdk_app_id": "1:227479027850:android:90d801bc9882ae7b5ced73",
         "android_client_info": {
-          "package_name": "com.android.acms_app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA4j-YgEkf3aQup4gF2x7S9b5hRqhK2TOk"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:227479027850:android:fc22b4781e7adcc15ced73",
-        "android_client_info": {
-          "package_name": "com.android.vextra"
+          "package_name": "com.example.acms_app"
         }
       },
       "oauth_client": [],
