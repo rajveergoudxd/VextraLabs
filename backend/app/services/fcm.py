@@ -16,6 +16,20 @@ def _get_credentials_path():
     # Get the directory where this module is located
     module_dir = Path(__file__).parent
     
+    # Debug: List contents of potential mount paths
+    try:
+        if Path("/backend").exists():
+            logger.info(f"Listing /backend contents: {[str(p) for p in Path('/backend').iterdir()]}")
+        else:
+            logger.info("/backend directory does not exist")
+    except Exception as e:
+        logger.warning(f"Failed to list /backend: {e}")
+        
+    try:
+        logger.info(f"Listing /code contents: {[str(p) for p in Path('/code').iterdir()]}")
+    except Exception:
+        pass
+    
     # Possible locations for firebase_credentials.json
     possible_paths = [
         # Cloud Run secret mount path (highest priority)
