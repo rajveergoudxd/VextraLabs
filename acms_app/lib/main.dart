@@ -14,6 +14,7 @@ import 'package:acms_app/providers/presence_provider.dart';
 import 'package:acms_app/providers/inspire_provider.dart';
 import 'package:acms_app/providers/saved_posts_provider.dart';
 import 'package:acms_app/providers/agent_provider.dart';
+import 'package:acms_app/services/push_notification_service.dart';
 
 // Screens
 import 'package:acms_app/screens/welcome_screen.dart';
@@ -86,6 +87,17 @@ void main() async {
       "Ensure google-services.json (Android) or GoogleService-Info.plist (iOS) are present.",
     );
     debugPrint("==========================================");
+    debugPrint("==========================================");
+  }
+
+  // Initialize Push Notifications
+  try {
+    // We don't await this to avoid blocking UI startup, but it should run early
+    // Or we can await if we want to ensure token is ready (but it might take time)
+    // For now, let's just fire and forget or await with timeout
+    await PushNotificationService().initialize();
+  } catch (e) {
+    debugPrint("Failed to initialize PushNotificationService: $e");
   }
 
   runApp(

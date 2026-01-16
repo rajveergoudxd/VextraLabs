@@ -12,11 +12,24 @@ try:
     # Otherwise, it might look for GOOGLE_APPLICATION_CREDENTIALS env var
     # For now, we'll try default app or initialize with explicit checks if we had the file
     if not firebase_admin._apps:
-        # Note: You need to set GOOGLE_APPLICATION_CREDENTIALS or provide cred object
-        # cred = credentials.Certificate("path/to/serviceAccountKey.json")
-        # firebase_admin.initialize_app(cred)
-        firebase_admin.initialize_app()
-    logger.info("Firebase Admin initialized successfully")
+        import os
+        cred_path = "firebase_credentials.json"
+        
+        if os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            logger.info(f"Firebase Admin initialized with {cred_path}")
+        elif os.path.exists(f"../{cred_path}"):
+             # In case we are one level deep
+            cred = credentials.Certificate(f"../{cred_path}")
+            firebase_admin.initialize_app(cred)
+            logger.info(f"Firebase Admin initialized with ../{cred_path}")
+        else:
+            # Fallback to default (env vars)
+            firebase_admin.initialize_app()
+            logger.info("Firebase Admin initialized with default credentials")
+            
+    # logger.info("Firebase Admin initialized successfully") # Already logged above
 except Exception as e:
     logger.warning(f"Failed to initialize Firebase Admin: {e}. Push notifications will not work.")
 

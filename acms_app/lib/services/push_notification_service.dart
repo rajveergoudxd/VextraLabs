@@ -5,6 +5,15 @@ import 'package:acms_app/services/notification_service.dart';
 
 /// Service for handling push notifications
 class PushNotificationService {
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
+
+  factory PushNotificationService() {
+    return _instance;
+  }
+
+  PushNotificationService._internal();
+
   FirebaseMessaging? _fcm;
   final NotificationService _notificationService = NotificationService();
 
