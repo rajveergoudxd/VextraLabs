@@ -11,6 +11,7 @@ class NotificationType(str, enum.Enum):
     LIKE = "like"
     COMMENT = "comment"
     MENTION = "mention"
+    MESSAGE = "message"
     SYSTEM = "system"
     AI = "ai"
 

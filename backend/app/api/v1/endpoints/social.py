@@ -62,23 +62,24 @@ def follow_user(
     follow = Follow(follower_id=current_user.id, following_id=user_id)
     db.add(follow)
     
-    # Create notification
-    notification = Notification(
-        user_id=user_id,
-        actor_id=current_user.id,
-        type=NotificationType.FOLLOW,
-        title="New Follower",
-        message=f"{current_user.username} started following you",
-        related_id=current_user.id,
-        related_type="user"
-    )
-    db.add(notification)
-    
     # Update counts
     current_user.following_count = (current_user.following_count or 0) + 1
     target_user.followers_count = (target_user.followers_count or 0) + 1
     
     db.commit()
+    
+    # Create notification with push notification via FCM
+    from app.api.v1.endpoints.notifications import create_notification
+    create_notification(
+        db=db,
+        user_id=user_id,
+        notification_type=NotificationType.FOLLOW,
+        message=f"{current_user.username} started following you",
+        actor_id=current_user.id,
+        title="New Follower",
+        related_id=current_user.id,
+        related_type="user"
+    )
     
     return {"message": "Successfully followed user", "following_id": user_id}
 

@@ -591,21 +591,22 @@ def toggle_like(
         db.add(new_like)
         post.likes_count += 1
         
-        # Create notification if not own post
+        db.commit()
+        
+        # Create notification with push notification via FCM (if not own post)
         if post.user_id != current_user.id:
-            from app.models.notification import Notification, NotificationType
-            notification = Notification(
+            from app.api.v1.endpoints.notifications import create_notification
+            from app.models.notification import NotificationType
+            create_notification(
+                db=db,
                 user_id=post.user_id,
-                actor_id=current_user.id,
-                type=NotificationType.LIKE,
-                title="New Like",
+                notification_type=NotificationType.LIKE,
                 message=f"{current_user.username} liked your post",
+                actor_id=current_user.id,
+                title="New Like",
                 related_id=post.id,
                 related_type="post"
             )
-            db.add(notification)
-            
-        db.commit()
         
         return {
             "is_liked": True,
@@ -672,22 +673,23 @@ def create_comment(
     # Update comment count on post
     post.comments_count += 1
     
-    # Create notification if not own post
+    db.commit()
+    db.refresh(comment)
+    
+    # Create notification with push notification via FCM (if not own post)
     if post.user_id != current_user.id:
-        from app.models.notification import Notification, NotificationType
-        notification = Notification(
+        from app.api.v1.endpoints.notifications import create_notification
+        from app.models.notification import NotificationType
+        create_notification(
+            db=db,
             user_id=post.user_id,
-            actor_id=current_user.id,
-            type=NotificationType.COMMENT,
-            title="New Comment",
+            notification_type=NotificationType.COMMENT,
             message=f"{current_user.username} commented on your post",
+            actor_id=current_user.id,
+            title="New Comment",
             related_id=post.id,
             related_type="post"
         )
-        db.add(notification)
-    
-    db.commit()
-    db.refresh(comment)
     
     return {
         "id": comment.id,

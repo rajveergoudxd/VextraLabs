@@ -286,6 +286,25 @@ def send_message(
     db.commit()
     db.refresh(message)
     
+    # Send push notification to other participants
+    from app.api.v1.endpoints.notifications import create_notification
+    from app.models.notification import NotificationType
+    
+    for p in conversation.participants:
+        if p.user_id != current_user.id:
+            # Truncate message for notification preview
+            preview = message_in.content[:50] + "..." if message_in.content and len(message_in.content) > 50 else (message_in.content or "Sent a message")
+            create_notification(
+                db=db,
+                user_id=p.user_id,
+                notification_type=NotificationType.MESSAGE,
+                message=preview,
+                actor_id=current_user.id,
+                title=f"Message from {current_user.username}",
+                related_id=conversation_id,
+                related_type="conversation"
+            )
+    
     return get_message_response(message, db)
 
 
