@@ -207,6 +207,31 @@ async def websocket_chat(
                         message_response,
                         conversation_id
                     )
+                    
+                    # Send push notification to participants who are NOT online in this conversation
+                    try:
+                        from app.api.v1.endpoints.notifications import create_notification
+                        from app.models.notification import NotificationType
+                        
+                        online_users = manager.get_online_users(conversation_id)
+                        
+                        for p in conversation.participants:
+                            if p.user_id != user.id and p.user_id not in online_users:
+                                # User is not connected via WebSocket, send push notification
+                                preview = content[:50] + "..." if content and len(content) > 50 else (content or "Sent a message")
+                                create_notification(
+                                    db=db,
+                                    user_id=p.user_id,
+                                    notification_type=NotificationType.MESSAGE,
+                                    message=preview,
+                                    actor_id=user.id,
+                                    title=f"Message from {user.username}",
+                                    related_id=conversation_id,
+                                    related_type="conversation"
+                                )
+                                logger.info(f"Push notification sent to offline user {p.user_id}")
+                    except Exception as e:
+                        logger.error(f"Error sending push notification for message: {e}")
                 
                 elif message_type == "read_receipt":
                     # Mark messages as read
