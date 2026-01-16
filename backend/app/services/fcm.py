@@ -16,25 +16,30 @@ def _get_credentials_path():
     # Get the directory where this module is located
     module_dir = Path(__file__).parent
     
+    # IMMEDIATE PRINT TO STDOUT FOR CLOUD RUN LOG VISIBILITY
+    print(f"DEBUG: Searching for credentials...")
+    
     # Debug: List contents of potential mount paths
     try:
         if Path("/backend").exists():
-            logger.info(f"Listing /backend contents: {[str(p) for p in Path('/backend').iterdir()]}")
+            print(f"DEBUG: Listing /backend contents: {[str(p) for p in Path('/backend').iterdir()]}")
         else:
-            logger.info("/backend directory does not exist")
+            print("DEBUG: /backend directory does not exist")
     except Exception as e:
-        logger.warning(f"Failed to list /backend: {e}")
+        print(f"DEBUG: Failed to list /backend: {e}")
         
     try:
-        logger.info(f"Listing /code contents: {[str(p) for p in Path('/code').iterdir()]}")
+        print(f"DEBUG: Listing /code contents: {[str(p) for p in Path('/code').iterdir()]}")
     except Exception:
         pass
-    
+        
     # Possible locations for firebase_credentials.json
     possible_paths = [
         # Cloud Run secret mount path (highest priority)
         Path("/backend/firebase_credentials.json"),
-        # In the backend root directory (most common for local dev)
+        # Docker container common path
+        Path("/code/firebase_credentials.json"),
+        # In the backend root directory (most common)
         module_dir.parent.parent.parent / "firebase_credentials.json",
         # In the current working directory
         Path("firebase_credentials.json"),
@@ -42,15 +47,15 @@ def _get_credentials_path():
         Path("../firebase_credentials.json"),
         # In the app directory
         module_dir.parent / "firebase_credentials.json",
-        # Docker container common path
-        Path("/code/firebase_credentials.json"),
     ]
     
     for path in possible_paths:
         if path.exists():
+            print(f"DEBUG: Found firebase credentials at: {path.absolute()}")
             logger.info(f"Found firebase credentials at: {path.absolute()}")
             return str(path.absolute())
     
+    print("DEBUG: No firebase_credentials.json found in any search path.")
     return None
 
 try:
@@ -61,19 +66,24 @@ try:
             cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
             _firebase_initialized = True
+            print(f"DEBUG: Firebase Admin initialized successfully with {cred_path}")
             logger.info(f"Firebase Admin initialized successfully with {cred_path}")
         else:
             # Try default credentials (env var or metadata server)
             try:
                 firebase_admin.initialize_app()
                 _firebase_initialized = True
+                print("DEBUG: Firebase Admin initialized with default credentials")
                 logger.info("Firebase Admin initialized with default credentials")
             except Exception as e:
+                print(f"DEBUG: Could not initialize Firebase with default credentials: {e}")
                 logger.warning(f"Could not initialize Firebase with default credentials: {e}")
     else:
         _firebase_initialized = True
+        print("DEBUG: Firebase Admin already initialized")
         logger.info("Firebase Admin already initialized")
 except Exception as e:
+    print(f"DEBUG: Failed to initialize Firebase Admin: {e}")
     logger.error(f"Failed to initialize Firebase Admin: {e}. Push notifications will not work.")
 
 
