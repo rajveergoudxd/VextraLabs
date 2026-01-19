@@ -5,7 +5,7 @@ class UserSettingsBase(BaseModel):
     push_notifications_enabled: bool = True
     email_notifications_enabled: bool = True
     theme_preference: str = "system"
-    theme_color: str = "red"
+    theme_color: Optional[str] = "red"
 
 class UserSettingsUpdate(BaseModel):
     push_notifications_enabled: Optional[bool] = None
