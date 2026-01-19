@@ -4,7 +4,10 @@ class ThemeManager extends ChangeNotifier {
   // Default to dark theme
   ThemeMode _themeMode = ThemeMode.dark;
 
+  String _themeColor = 'red';
+
   ThemeMode get themeMode => _themeMode;
+  String get themeColor => _themeColor;
 
   bool get isDarkMode {
     if (_themeMode == ThemeMode.system) {
@@ -22,6 +25,13 @@ class ThemeManager extends ChangeNotifier {
   void setThemeMode(ThemeMode mode) {
     if (_themeMode != mode) {
       _themeMode = mode;
+      notifyListeners();
+    }
+  }
+
+  void setThemeColor(String color) {
+    if (_themeColor != color) {
+      _themeColor = color;
       notifyListeners();
     }
   }

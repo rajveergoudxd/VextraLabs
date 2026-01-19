@@ -267,6 +267,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildDivider(isDark),
                     _buildSettingsItem(
                       context,
+                      icon: Icons.color_lens,
+                      title: 'Accent Color',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color:
+                                  AppTheme.themeColors[themeManager.themeColor],
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right, color: Colors.grey),
+                        ],
+                      ),
+                      isDark: isDark,
+                      onTap: () => _showColorPicker(context, settingsProvider),
+                    ),
+                    _buildDivider(isDark),
+                    _buildSettingsItem(
+                      context,
                       icon: Icons.shield,
                       title: 'Privacy & Data',
                       trailing: const Icon(
@@ -517,6 +545,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'dark',
               ),
               const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showColorPicker(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 16),
+              const Text(
+                'Select Accent Color',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 24,
+                  alignment: WrapAlignment.center,
+                  children: AppTheme.themeColors.entries.map((entry) {
+                    final isSelected = themeManager.themeColor == entry.key;
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        settingsProvider.updateThemeColor(entry.key);
+                      },
+                      borderRadius: BorderRadius.circular(30),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: entry.value,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.textMain
+                                : Colors.grey[200]!,
+                            width: isSelected ? 3 : 1,
+                          ),
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(
+                                color: entry.value.withValues(alpha: 0.4),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
+                          ],
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check, color: Colors.white)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 32),
             ],
           ),
         );

@@ -14,3 +14,4 @@ class UserSettings(Base):
     
     # Theme Preference (synced from client)
     theme_preference = Column(String, default="system")  # 'system', 'light', 'dark'
+    theme_color = Column(String, default="red") # 'red', 'blue', 'green', etc.

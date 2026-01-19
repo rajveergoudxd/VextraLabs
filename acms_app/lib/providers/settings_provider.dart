@@ -9,6 +9,7 @@ class UserSettings {
   final bool pushNotificationsEnabled;
   final bool emailNotificationsEnabled;
   final String themePreference;
+  final String themeColor;
 
   UserSettings({
     required this.id,
@@ -16,6 +17,7 @@ class UserSettings {
     required this.pushNotificationsEnabled,
     required this.emailNotificationsEnabled,
     required this.themePreference,
+    required this.themeColor,
   });
 
   factory UserSettings.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class UserSettings {
       pushNotificationsEnabled: json['push_notifications_enabled'] ?? false,
       emailNotificationsEnabled: json['email_notifications_enabled'] ?? true,
       themePreference: json['theme_preference'] ?? 'system',
+      themeColor: json['theme_color'] ?? 'red',
     );
   }
 
@@ -35,6 +38,7 @@ class UserSettings {
       pushNotificationsEnabled: false,
       emailNotificationsEnabled: true,
       themePreference: 'system',
+      themeColor: 'red',
     );
   }
 }
@@ -54,6 +58,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get pushNotificationsEnabled => _settings.pushNotificationsEnabled;
   bool get emailNotificationsEnabled => _settings.emailNotificationsEnabled;
   String get themePreference => _settings.themePreference;
+  String get themeColor => _settings.themeColor;
 
   Future<void> loadSettings() async {
     _isLoading = true;
@@ -64,6 +69,8 @@ class SettingsProvider extends ChangeNotifier {
       final data = await _settingsService.getSettings();
       _settings = UserSettings.fromJson(data);
       _syncThemeMode(_settings.themePreference);
+      // Sync theme color
+      themeManager.setThemeColor(_settings.themeColor);
     } catch (e) {
       _error = e.toString();
       _settings = UserSettings.defaults();
@@ -134,6 +141,21 @@ class SettingsProvider extends ChangeNotifier {
       final data = await _settingsService.updateSettings(
         themePreference: theme,
       );
+      _settings = UserSettings.fromJson(data);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateThemeColor(String color) async {
+    themeManager.setThemeColor(color);
+
+    try {
+      final data = await _settingsService.updateSettings(themeColor: color);
       _settings = UserSettings.fromJson(data);
       notifyListeners();
       return true;

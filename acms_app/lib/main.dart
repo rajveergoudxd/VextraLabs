@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:acms_app/theme/theme_manager.dart';
+import 'package:acms_app/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:acms_app/providers/creation_provider.dart';
 import 'package:acms_app/providers/auth_provider.dart';
@@ -426,8 +427,8 @@ class AcmsApp extends StatelessWidget {
 
     return MaterialApp.router(
       title: 'Vextra',
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      theme: AppTheme.lightTheme(themeManager.themeColor),
+      darkTheme: AppTheme.darkTheme(themeManager.themeColor),
       themeMode: themeManager.themeMode,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,

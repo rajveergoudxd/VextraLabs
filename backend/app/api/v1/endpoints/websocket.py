@@ -2,6 +2,7 @@ from typing import Dict, Set
 from datetime import datetime
 import json
 import logging
+import asyncio
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
@@ -25,30 +26,43 @@ class ConnectionManager:
     def __init__(self):
         # conversation_id -> {user_id -> WebSocket}
         self.active_connections: Dict[int, Dict[int, WebSocket]] = {}
+        self.lock = asyncio.Lock()
     
     async def connect(self, websocket: WebSocket, conversation_id: int, user_id: int):
         """Accept connection and add to tracking."""
         await websocket.accept()
-        if conversation_id not in self.active_connections:
-            self.active_connections[conversation_id] = {}
-        self.active_connections[conversation_id][user_id] = websocket
-        logger.info(f"User {user_id} connected to conversation {conversation_id}")
+        async with self.lock:
+            if conversation_id not in self.active_connections:
+                self.active_connections[conversation_id] = {}
+            self.active_connections[conversation_id][user_id] = websocket
+            logger.info(f"User {user_id} connected to conversation {conversation_id}")
     
-    def disconnect(self, conversation_id: int, user_id: int):
+    async def disconnect(self, conversation_id: int, user_id: int):
         """Remove connection from tracking."""
-        if conversation_id in self.active_connections:
-            if user_id in self.active_connections[conversation_id]:
-                del self.active_connections[conversation_id][user_id]
-            if not self.active_connections[conversation_id]:
-                del self.active_connections[conversation_id]
-        logger.info(f"User {user_id} disconnected from conversation {conversation_id}")
+        async with self.lock:
+            if conversation_id in self.active_connections:
+                if user_id in self.active_connections[conversation_id]:
+                    del self.active_connections[conversation_id][user_id]
+                if not self.active_connections[conversation_id]:
+                    del self.active_connections[conversation_id]
+            logger.info(f"User {user_id} disconnected from conversation {conversation_id}")
     
     async def send_personal_message(self, message: dict, conversation_id: int, user_id: int):
         """Send message to a specific user in conversation."""
-        if conversation_id in self.active_connections:
-            if user_id in self.active_connections[conversation_id]:
-                websocket = self.active_connections[conversation_id][user_id]
+        # Note: Sending is async, but we need lock to access dict safely.
+        # However, holding lock while sending might block others. 
+        # Better: get websocket under lock, then send.
+        websocket = None
+        async with self.lock:
+            if conversation_id in self.active_connections:
+                if user_id in self.active_connections[conversation_id]:
+                    websocket = self.active_connections[conversation_id][user_id]
+        
+        if websocket:
+            try:
                 await websocket.send_json(message)
+            except Exception as e:
+                logger.error(f"Error sending personal message to {user_id}: {e}")
     
     async def broadcast_to_conversation(
         self, 
@@ -57,20 +71,27 @@ class ConnectionManager:
         exclude_user_id: int = None
     ):
         """Broadcast message to all users in a conversation."""
-        if conversation_id in self.active_connections:
-            for user_id, websocket in self.active_connections[conversation_id].items():
-                if exclude_user_id and user_id == exclude_user_id:
-                    continue
-                try:
-                    await websocket.send_json(message)
-                except Exception as e:
-                    logger.error(f"Error sending to user {user_id}: {e}")
+        targets = []
+        async with self.lock:
+            if conversation_id in self.active_connections:
+                for user_id, websocket in self.active_connections[conversation_id].items():
+                    if exclude_user_id and user_id == exclude_user_id:
+                        continue
+                    targets.append((user_id, websocket))
+        
+        # Send outside of lock to avoid blocking
+        for user_id, websocket in targets:
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.error(f"Error sending to user {user_id}: {e}")
     
-    def get_online_users(self, conversation_id: int) -> Set[int]:
+    async def get_online_users(self, conversation_id: int) -> Set[int]:
         """Get set of online user IDs in a conversation."""
-        if conversation_id in self.active_connections:
-            return set(self.active_connections[conversation_id].keys())
-        return set()
+        async with self.lock:
+            if conversation_id in self.active_connections:
+                return set(self.active_connections[conversation_id].keys())
+            return set()
 
 
 manager = ConnectionManager()
@@ -213,7 +234,7 @@ async def websocket_chat(
                         from app.api.v1.endpoints.notifications import create_notification
                         from app.models.notification import NotificationType
                         
-                        online_users = manager.get_online_users(conversation_id)
+                        online_users = await manager.get_online_users(conversation_id)
                         
                         for p in conversation.participants:
                             if p.user_id != user.id and p.user_id not in online_users:
@@ -279,7 +300,7 @@ async def websocket_chat(
                     )
         
         except WebSocketDisconnect:
-            manager.disconnect(conversation_id, user.id)
+            await manager.disconnect(conversation_id, user.id)
             # Notify others that user went offline
             await manager.broadcast_to_conversation(
                 {

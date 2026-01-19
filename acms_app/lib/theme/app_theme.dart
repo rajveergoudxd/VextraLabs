@@ -34,16 +34,38 @@ class AppTextStyles {
 }
 
 class AppTheme {
-  static ThemeData get lightTheme {
+  static const Map<String, Color> themeColors = {
+    'red': Color(0xFFea2a33),
+    'blue': Color(0xFF2563EB),
+    'green': Color(0xFF059669),
+    'purple': Color(0xFF7C3AED),
+    'orange': Color(0xFFEA580C),
+    'pink': Color(0xFFDB2777),
+  };
+
+  static ThemeData lightTheme(String colorKey) {
+    final primary = themeColors[colorKey] ?? themeColors['red']!;
+
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: AppColors.backgroundLight,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primary,
+        brightness: Brightness.light,
         surface: AppColors.surfaceLight,
         onSurface: AppColors.textMain,
-      ),
+      ).copyWith(primary: primary),
       fontFamily: GoogleFonts.notoSans().fontFamily,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textMain),
+        titleTextStyle: AppTextStyles.display.copyWith(
+          color: AppColors.textMain,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       textTheme: TextTheme(
         displayLarge: AppTextStyles.display.copyWith(
           fontWeight: FontWeight.bold,
@@ -59,17 +81,29 @@ class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
+  static ThemeData darkTheme(String colorKey) {
+    final primary = themeColors[colorKey] ?? themeColors['red']!;
+
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: AppColors.backgroundDark,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
-        surface: AppColors.backgroundDark, // Was background
-        onPrimary: Colors.white,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primary,
+        brightness: Brightness.dark,
+        surface: AppColors.backgroundDark,
         onSurface: Colors.white,
-      ),
+      ).copyWith(primary: primary, onPrimary: Colors.white),
       fontFamily: GoogleFonts.notoSans().fontFamily,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: AppTextStyles.display.copyWith(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       textTheme: TextTheme(
         displayLarge: AppTextStyles.display.copyWith(
           fontWeight: FontWeight.bold,

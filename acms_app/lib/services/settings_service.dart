@@ -17,6 +17,7 @@ class SettingsService {
     bool? pushNotificationsEnabled,
     bool? emailNotificationsEnabled,
     String? themePreference,
+    String? themeColor,
   }) async {
     try {
       final response = await _dio.put(
@@ -27,6 +28,7 @@ class SettingsService {
           if (emailNotificationsEnabled != null)
             'email_notifications_enabled': emailNotificationsEnabled,
           if (themePreference != null) 'theme_preference': themePreference,
+          if (themeColor != null) 'theme_color': themeColor,
         },
       );
       return response.data;

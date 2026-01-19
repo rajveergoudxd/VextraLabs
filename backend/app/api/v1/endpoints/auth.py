@@ -123,38 +123,53 @@ async def create_user_signup(
             status_code=400,
             detail="The user with this email already exists in the system",
         )
-    user = UserModel(
-        email=user_in.email,
-        hashed_password=security.get_password_hash(user_in.password),
-        full_name=user_in.full_name,
-        is_active=False,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
-    otp_entry = OTPModel(
-        email=user_in.email,
-        code=otp_code,
-        purpose="signup",
-        expires_at=expires_at,
-    )
-    db.add(otp_entry)
-    db.commit()
-
+    # Start transaction
     try:
+        user = UserModel(
+            email=user_in.email,
+            hashed_password=security.get_password_hash(user_in.password),
+            full_name=user_in.full_name,
+            is_active=False,
+        )
+        db.add(user)
+        db.flush() # Flush to get user ID, but don't commit yet
+
+        otp_code = generate_otp()
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        
+        otp_entry = OTPModel(
+            email=user_in.email,
+            code=otp_code,
+            purpose="signup",
+            expires_at=expires_at,
+        )
+        db.add(otp_entry)
+        
+        # Verify integrity but don't commit until email is sent (or commit and rollback)
+        # Strategy: Commit DB changes so they are persistent, then send email.
+        # If email fails, we must delete the user (rollback).
+        # Reason: We can't await email in a pending transaction easily without holding locks.
+        # But for 'transaction control', we want all-or-nothing.
+        # Better approach for reliability:
+        # 1. Add to DB.
+        # 2. Flush.
+        # 3. Send Email.
+        # 4. If email success -> Commit.
+        # 5. If email fail -> Rollback (DB session is still open).
+        
         await EmailService.send_otp_email(user_in.email, otp_code, purpose="signup")
-    except Exception as e:
-        # Rollback if email fails
-        db.delete(otp_entry)
-        db.delete(user)
         db.commit()
+        db.refresh(user)
+        
+    except Exception as e:
+        db.rollback()
+        # If it was an HTTPException, re-raise it
+        if isinstance(e, HTTPException):
+            raise e
+        # Otherwise, wrap in 500
         raise HTTPException(
             status_code=500,
-            detail="Failed to send verification email. Please try again later."
+            detail="Failed to process signup. Please try again."
         )
     
     return user
