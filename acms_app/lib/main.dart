@@ -16,6 +16,8 @@ import 'package:acms_app/providers/inspire_provider.dart';
 import 'package:acms_app/providers/saved_posts_provider.dart';
 import 'package:acms_app/providers/agent_provider.dart';
 import 'package:acms_app/services/push_notification_service.dart';
+import 'package:acms_app/core/database/database_service.dart';
+import 'package:acms_app/services/sync_service.dart';
 
 // Screens
 import 'package:acms_app/screens/welcome_screen.dart';
@@ -99,6 +101,23 @@ void main() async {
     await PushNotificationService().initialize();
   } catch (e) {
     debugPrint("Failed to initialize PushNotificationService: $e");
+  }
+
+  // Initialize Offline Storage (Isar Database)
+  try {
+    await DatabaseService.initialize();
+    debugPrint("DatabaseService initialized successfully");
+  } catch (e) {
+    debugPrint("Failed to initialize DatabaseService: $e");
+    // App can still function without offline storage
+  }
+
+  // Initialize Sync Service for connectivity monitoring
+  try {
+    await SyncService.instance.initialize();
+    debugPrint("SyncService initialized successfully");
+  } catch (e) {
+    debugPrint("Failed to initialize SyncService: $e");
   }
 
   runApp(

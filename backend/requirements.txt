@@ -19,3 +19,4 @@ websockets
 tenacity
 firebase-admin
 groq
+redis>=5.0.0

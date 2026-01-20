@@ -111,11 +111,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (text.isEmpty) return;
 
     _messageController.clear();
-    context.read<ChatProvider>().sendTyping(false);
+    final chatProvider = context.read<ChatProvider>();
+    chatProvider.sendTyping(false);
 
-    final success = await context.read<ChatProvider>().sendMessage(text);
-    if (success && mounted) {
-      // Automatic with reverse: true
+    // Check if this is a reply
+    if (chatProvider.replyingTo != null) {
+      await chatProvider.sendReply(text);
+    } else {
+      await chatProvider.sendMessage(text);
     }
   }
 
@@ -194,8 +197,76 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
           ),
           _buildTypingIndicator(isDark),
+          // Reply bar (when replying to a message)
+          Consumer<ChatProvider>(
+            builder: (context, chatProvider, _) {
+              if (chatProvider.replyingTo == null) {
+                return const SizedBox.shrink();
+              }
+              return _buildReplyBar(isDark, chatProvider.replyingTo!);
+            },
+          ),
           _buildMessageInput(isDark),
           if (_showEmojiPicker) _buildEmojiPicker(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyBar(bool isDark, ChatMessage replyingTo) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[850] : Colors.grey[100],
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Replying to ${replyingTo.senderFullName ?? replyingTo.senderUsername ?? "message"}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  replyingTo.content ??
+                      (replyingTo.messageType == 'image'
+                          ? '📷 Photo'
+                          : '📎 Media'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              context.read<ChatProvider>().clearReply();
+            },
+            icon: Icon(Icons.close, size: 20, color: Colors.grey[500]),
+          ),
         ],
       ),
     );
@@ -654,7 +725,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 }
 
-/// Message bubble widget with read receipt indicator
+/// Message bubble widget with reactions, reply preview, edit indicator, and long-press menu
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMe;
@@ -666,61 +737,338 @@ class _MessageBubble extends StatelessWidget {
     required this.isDark,
   });
 
+  // Available reaction emojis
+  static const List<String> reactionEmojis = [
+    '❤️',
+    '👍',
+    '😂',
+    '😮',
+    '😢',
+    '🙏',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe) const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.75,
-                  ),
-                  padding: message.messageType == 'text'
-                      ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
-                      : const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: isMe
-                        ? AppColors.primary
-                        : (isDark ? Colors.grey[800] : Colors.grey[200]),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(20),
-                      topRight: const Radius.circular(20),
-                      bottomLeft: Radius.circular(isMe ? 20 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 20),
-                    ),
-                  ),
-                  child: _buildContent(),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+    final currentUserId = context.read<AuthProvider>().user?.id ?? 0;
+
+    return Dismissible(
+      key: ValueKey('swipe_${message.id}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (direction) async {
+        // Trigger reply
+        context.read<ChatProvider>().setReplyingTo(message);
+        return false; // Don't dismiss
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        child: Icon(Icons.reply, color: Colors.grey[400]),
+      ),
+      child: GestureDetector(
+        onLongPress: () => _showMessageOptions(context, currentUserId),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            mainAxisAlignment: isMe
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isMe) const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: isMe
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _formatTime(message.createdAt),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.75,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isMe
+                            ? AppColors.primary
+                            : (isDark ? Colors.grey[800] : Colors.grey[200]),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(20),
+                          topRight: const Radius.circular(20),
+                          bottomLeft: Radius.circular(isMe ? 20 : 4),
+                          bottomRight: Radius.circular(isMe ? 4 : 20),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Reply preview (if this message is a reply)
+                          if (message.replyTo != null)
+                            _buildReplyPreview(context),
+                          // Main content
+                          Padding(
+                            padding: message.messageType == 'text'
+                                ? const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  )
+                                : const EdgeInsets.all(4),
+                            child: _buildContent(),
+                          ),
+                        ],
+                      ),
                     ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      _buildReadIndicator(),
-                    ],
+                    // Reactions display
+                    if (message.reactions.isNotEmpty)
+                      _buildReactionsDisplay(context, currentUserId),
+                    const SizedBox(height: 2),
+                    // Timestamp and read indicator
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatTime(message.createdAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                        if (message.isEdited) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            'edited',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          _buildReadIndicator(),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
+              if (isMe) const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReplyPreview(BuildContext context) {
+    final reply = message.replyTo!;
+    return Container(
+      margin: const EdgeInsets.only(left: 8, right: 8, top: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.white.withValues(alpha: 0.15)
+            : Colors.grey.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(
+            color: isMe ? Colors.white70 : AppColors.primary,
+            width: 3,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            reply.senderName ?? 'Message',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isMe ? Colors.white70 : AppColors.primary,
             ),
           ),
-          if (isMe) const SizedBox(width: 8),
+          const SizedBox(height: 2),
+          Text(
+            reply.content ??
+                (reply.messageType == 'image' ? '📷 Photo' : '📎 Media'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: isMe ? Colors.white60 : Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactionsDisplay(BuildContext context, int currentUserId) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(
+        spacing: 4,
+        children: message.reactions.map((reaction) {
+          final isMine = reaction.hasUserReacted(currentUserId);
+          return GestureDetector(
+            onTap: () {
+              context.read<ChatProvider>().toggleReaction(
+                message.id,
+                reaction.emoji,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isMine
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : (isDark ? Colors.grey[700] : Colors.grey[300]),
+                borderRadius: BorderRadius.circular(12),
+                border: isMine
+                    ? Border.all(color: AppColors.primary, width: 1)
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(reaction.emoji, style: const TextStyle(fontSize: 12)),
+                  if (reaction.count > 1) ...[
+                    const SizedBox(width: 2),
+                    Text(
+                      '${reaction.count}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white70 : Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showMessageOptions(BuildContext context, int currentUserId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Reaction picker row
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: reactionEmojis.map((emoji) {
+                  final existingReaction = message.reactions
+                      .where((r) => r.emoji == emoji)
+                      .firstOrNull;
+                  final isMine =
+                      existingReaction?.hasUserReacted(currentUserId) ?? false;
+
+                  return GestureDetector(
+                    onTap: () {
+                      context.read<ChatProvider>().toggleReaction(
+                        message.id,
+                        emoji,
+                      );
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isMine
+                            ? AppColors.primary.withValues(alpha: 0.2)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Divider(height: 1),
+            // Reply option
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                context.read<ChatProvider>().setReplyingTo(message);
+              },
+            ),
+            // Edit option (sender only, text messages)
+            if (isMe && message.messageType == 'text')
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog(context);
+                },
+              ),
+            // Copy option (text messages)
+            if (message.messageType == 'text' && message.content != null)
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: const Text('Copy'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Copy to clipboard
+                  if (message.content != null) {
+                    // Using services
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context) {
+    final controller = TextEditingController(text: message.content);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        title: const Text('Edit Message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: null,
+          decoration: const InputDecoration(
+            hintText: 'Enter new message',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newContent = controller.text.trim();
+              if (newContent.isNotEmpty && newContent != message.content) {
+                context.read<ChatProvider>().editMessage(
+                  message.id,
+                  newContent,
+                );
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );

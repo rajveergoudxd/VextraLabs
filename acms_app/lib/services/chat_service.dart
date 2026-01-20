@@ -146,4 +146,61 @@ class ChatService {
     );
     return response.data;
   }
+
+  // ============== Edit & Reactions ==============
+
+  /// Edit a sent message (sender only, within 15 min)
+  Future<Map<String, dynamic>> editMessage(
+    int conversationId,
+    int messageId,
+    String content,
+  ) async {
+    final response = await _apiClient.dio.put(
+      '/chat/conversations/$conversationId/messages/$messageId',
+      data: {'content': content},
+    );
+    return response.data;
+  }
+
+  /// Toggle a reaction on a message
+  Future<Map<String, dynamic>> toggleReaction(
+    int conversationId,
+    int messageId,
+    String emoji,
+  ) async {
+    final response = await _apiClient.dio.post(
+      '/chat/conversations/$conversationId/messages/$messageId/reactions',
+      data: {'emoji': emoji},
+    );
+    return response.data;
+  }
+
+  /// Remove a reaction from a message
+  Future<Map<String, dynamic>> removeReaction(
+    int conversationId,
+    int messageId,
+    String emoji,
+  ) async {
+    final response = await _apiClient.dio.delete(
+      '/chat/conversations/$conversationId/messages/$messageId/reactions/$emoji',
+    );
+    return response.data;
+  }
+
+  /// Send a reply message
+  Future<Map<String, dynamic>> sendReplyMessage(
+    int conversationId,
+    String content,
+    int replyToId,
+  ) async {
+    final response = await _apiClient.dio.post(
+      '/chat/conversations/$conversationId/messages',
+      data: {
+        'content': content,
+        'message_type': 'text',
+        'reply_to_id': replyToId,
+      },
+    );
+    return response.data;
+  }
 }

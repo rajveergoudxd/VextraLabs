@@ -74,7 +74,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     setState(() => _isUploading = false);
 
     if (success) {
-      router.go('/onboarding-success');
+      router.go('/onboarding/social');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

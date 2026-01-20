@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc, func
@@ -8,6 +8,7 @@ from app.api import deps
 from app.models.user import User as UserModel
 from app.models.conversation import Conversation, ConversationParticipant
 from app.models.message import Message, MessageType
+from app.models.message_reaction import MessageReaction
 from app.models.post import Post
 from app.schemas.chat import (
     ConversationCreate,
@@ -16,11 +17,18 @@ from app.schemas.chat import (
     ConversationDetailResponse,
     ConversationParticipantInfo,
     MessageCreate,
+    MessageEdit,
     MessageResponse,
     MessageSender,
+    ReactionCreate,
+    ReactionInfo,
+    ReplyPreview,
 )
 
 router = APIRouter()
+
+# Edit time limit in minutes
+MESSAGE_EDIT_TIME_LIMIT = 15
 
 
 def get_participant_info(participant: ConversationParticipant, user: UserModel) -> ConversationParticipantInfo:
@@ -30,8 +38,13 @@ def get_participant_info(participant: ConversationParticipant, user: UserModel) 
         username=user.username,
         full_name=user.full_name,
         profile_picture=user.profile_picture,
+        profile_picture=user.profile_picture,
         last_read_at=participant.last_read_at
     )
+
+# Import manager for broadcasting
+from fastapi import BackgroundTasks
+from app.api.v1.endpoints.websocket import manager
 
 
 def get_message_response(message: Message, db: Session) -> MessageResponse:
@@ -65,6 +78,41 @@ def get_message_response(message: Message, db: Session) -> MessageResponse:
                 "comments_count": post.comments_count,
             }
     
+    # Get reply_to preview if this is a reply
+    reply_preview = None
+    if message.reply_to_id:
+        reply_msg = db.query(Message).filter(Message.id == message.reply_to_id).first()
+        if reply_msg:
+            reply_sender_name = None
+            if reply_msg.sender_id:
+                reply_sender = db.query(UserModel).filter(UserModel.id == reply_msg.sender_id).first()
+                if reply_sender:
+                    reply_sender_name = reply_sender.full_name or reply_sender.username
+            reply_preview = ReplyPreview(
+                id=reply_msg.id,
+                sender_id=reply_msg.sender_id,
+                sender_name=reply_sender_name,
+                content=reply_msg.content[:100] if reply_msg.content else None,
+                message_type=reply_msg.message_type
+            )
+    
+    # Aggregate reactions
+    reactions = []
+    reactions_query = db.query(
+        MessageReaction.emoji,
+        func.count(MessageReaction.id).label('count'),
+        func.array_agg(MessageReaction.user_id).label('user_ids')
+    ).filter(
+        MessageReaction.message_id == message.id
+    ).group_by(MessageReaction.emoji).all()
+    
+    for emoji, count, user_ids in reactions_query:
+        reactions.append(ReactionInfo(
+            emoji=emoji,
+            count=count,
+            user_ids=user_ids or []
+        ))
+    
     return MessageResponse(
         id=message.id,
         conversation_id=message.conversation_id,
@@ -77,7 +125,11 @@ def get_message_response(message: Message, db: Session) -> MessageResponse:
         shared_post=shared_post,
         created_at=message.created_at,
         is_read=message.is_read,
-        read_at=message.read_at
+        read_at=message.read_at,
+        reply_to_id=message.reply_to_id,
+        reply_to=reply_preview,
+        reactions=reactions,
+        edited_at=message.edited_at
     )
 
 
@@ -240,6 +292,7 @@ def get_conversation_detail(
 def send_message(
     conversation_id: int,
     message_in: MessageCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(deps.get_db),
     current_user: UserModel = Depends(deps.get_current_user),
 ) -> MessageResponse:
@@ -270,7 +323,8 @@ def send_message(
         content=message_in.content,
         message_type=message_in.message_type.value,
         media_url=message_in.media_url,
-        shared_post_id=message_in.shared_post_id
+        shared_post_id=message_in.shared_post_id,
+        reply_to_id=message_in.reply_to_id
     )
     db.add(message)
     
@@ -305,7 +359,46 @@ def send_message(
                 related_type="conversation"
             )
     
-    return get_message_response(message, db)
+    
+    # Prepare response
+    response = get_message_response(message, db)
+
+    # Broadcast to all participants using background task
+    participant_ids = {p.user_id for p in conversation.participants}
+    
+    # We need to serialize the Pydantic model to dict for JSON serialization
+    # Pydantic v1 uses .dict(), v2 uses .model_dump() - assuming v1 based on context or standard v1 usage in surrounding code
+    # Inspecting usage, likely v1. safe to use jsonable_encoder or .dict()
+    from fastapi.encoders import jsonable_encoder
+    response_data = jsonable_encoder(response)
+    
+    broadcast_msg = {
+        "type": "message",
+        "data": response_data["data"] if "data" in response_data else response_data
+        # Note: get_message_response returns flat MessageResponse. 
+        # WebSocket expects {"type": "message", "data": ...}
+        # But MessageResponse structure: id, conversation_id, ... 
+        # So we wrap it.
+    }
+    # Wait, 'get_message_response' returns the flat model. 
+    # In websocket.py we constructed:
+    # { "type": "message", "data": { ... fields ... } }
+    # So here:
+    
+    final_broadcast = {
+        "type": "message",
+        "data": response_data
+    }
+    
+    background_tasks.add_task(
+        manager.broadcast_to_conversation,
+        conversation_id,
+        final_broadcast,
+        participant_ids,
+        exclude_user_id=current_user.id
+    )
+
+    return response
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
@@ -348,6 +441,7 @@ def get_messages(
 @router.put("/conversations/{conversation_id}/read")
 def mark_conversation_read(
     conversation_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(deps.get_db),
     current_user: UserModel = Depends(deps.get_current_user),
 ) -> dict:
@@ -370,18 +464,307 @@ def mark_conversation_read(
     participant.last_read_at = now
     
     # Mark all unread messages as read
-    updated = db.query(Message).filter(
+    # Find unread messages first to get IDs for broadcast
+    unread_messages = db.query(Message).filter(
         Message.conversation_id == conversation_id,
         Message.sender_id != current_user.id,
         Message.is_read == False
-    ).update({
-        "is_read": True,
-        "read_at": now
-    })
+    ).all()
+    
+    message_ids = [m.id for m in unread_messages]
+    
+    # Mark all unread messages as read
+    updated = 0
+    if message_ids:
+        updated = db.query(Message).filter(
+            Message.id.in_(message_ids)
+        ).update({
+            "is_read": True,
+            "read_at": now
+        }, synchronize_session=False)
+    
+    db.commit()
+    
+    # Broadcast read receipt
+    if message_ids:
+        # Get participants
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if conversation:
+            participant_ids = {p.user_id for p in conversation.participants}
+            
+            background_tasks.add_task(
+                manager.broadcast_to_conversation,
+                conversation_id,
+                {
+                    "type": "read_receipt",
+                    "data": {
+                        "user_id": current_user.id,
+                        "message_ids": message_ids,
+                        "read_at": now.isoformat(),
+                         "conversation_id": conversation_id
+                    }
+                },
+                participant_ids,
+                exclude_user_id=current_user.id
+            )
     
     db.commit()
     
     return {"marked_read": updated}
+
+
+# ============== Edit & Reactions ==============
+
+@router.put("/conversations/{conversation_id}/messages/{message_id}", response_model=MessageResponse)
+def edit_message(
+    conversation_id: int,
+    message_id: int,
+    edit_in: MessageEdit,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+) -> MessageResponse:
+    """Edit a sent message (sender only, within time limit)."""
+    # Get the message
+    message = db.query(Message).filter(
+        Message.id == message_id,
+        Message.conversation_id == conversation_id
+    ).first()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found"
+        )
+    
+    # Verify sender
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own messages"
+        )
+    
+    # Check time limit
+    time_since_sent = datetime.utcnow() - message.created_at.replace(tzinfo=None)
+    if time_since_sent > timedelta(minutes=MESSAGE_EDIT_TIME_LIMIT):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Messages can only be edited within {MESSAGE_EDIT_TIME_LIMIT} minutes"
+        )
+    
+    # Store original content if first edit
+    if not message.original_content:
+        message.original_content = message.content
+    
+    # Update message
+    message.content = edit_in.content
+    message.edited_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(message)
+    
+    response = get_message_response(message, db)
+    
+    # Broadcast edit to all participants
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if conversation:
+        participant_ids = {p.user_id for p in conversation.participants}
+        from fastapi.encoders import jsonable_encoder
+        
+        background_tasks.add_task(
+            manager.broadcast_to_conversation,
+            conversation_id,
+            {
+                "type": "message_edit",
+                "data": {
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                    "content": message.content,
+                    "edited_at": message.edited_at.isoformat()
+                }
+            },
+            participant_ids,
+            exclude_user_id=None  # Send to all including sender for sync
+        )
+    
+    return response
+
+
+@router.post("/conversations/{conversation_id}/messages/{message_id}/reactions")
+def add_reaction(
+    conversation_id: int,
+    message_id: int,
+    reaction_in: ReactionCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+) -> dict:
+    """Add an emoji reaction to a message."""
+    # Validate emoji (allowed emojis)
+    allowed_emojis = ["❤️", "👍", "😂", "😮", "😢", "🙏"]
+    if reaction_in.emoji not in allowed_emojis:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid emoji. Allowed: ❤️ 👍 😂 😮 😢 🙏"
+        )
+    
+    # Check if user is a participant
+    participant = db.query(ConversationParticipant).filter(
+        ConversationParticipant.conversation_id == conversation_id,
+        ConversationParticipant.user_id == current_user.id
+    ).first()
+    
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    # Verify message exists
+    message = db.query(Message).filter(
+        Message.id == message_id,
+        Message.conversation_id == conversation_id
+    ).first()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found"
+        )
+    
+    # Check if reaction already exists (toggle behavior)
+    existing = db.query(MessageReaction).filter(
+        MessageReaction.message_id == message_id,
+        MessageReaction.user_id == current_user.id,
+        MessageReaction.emoji == reaction_in.emoji
+    ).first()
+    
+    if existing:
+        # Remove reaction (toggle off)
+        db.delete(existing)
+        action = "removed"
+    else:
+        # Add reaction
+        reaction = MessageReaction(
+            message_id=message_id,
+            user_id=current_user.id,
+            emoji=reaction_in.emoji
+        )
+        db.add(reaction)
+        action = "added"
+    
+    db.commit()
+    
+    # Get updated reactions
+    reactions_query = db.query(
+        MessageReaction.emoji,
+        func.count(MessageReaction.id).label('count'),
+        func.array_agg(MessageReaction.user_id).label('user_ids')
+    ).filter(
+        MessageReaction.message_id == message_id
+    ).group_by(MessageReaction.emoji).all()
+    
+    reactions = [
+        {"emoji": emoji, "count": count, "user_ids": user_ids or []}
+        for emoji, count, user_ids in reactions_query
+    ]
+    
+    # Broadcast reaction update
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if conversation:
+        participant_ids = {p.user_id for p in conversation.participants}
+        
+        background_tasks.add_task(
+            manager.broadcast_to_conversation,
+            conversation_id,
+            {
+                "type": "reaction_update",
+                "data": {
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                    "reactions": reactions
+                }
+            },
+            participant_ids,
+            exclude_user_id=None
+        )
+    
+    return {"action": action, "reactions": reactions}
+
+
+@router.delete("/conversations/{conversation_id}/messages/{message_id}/reactions/{emoji}")
+def remove_reaction(
+    conversation_id: int,
+    message_id: int,
+    emoji: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(deps.get_db),
+    current_user: UserModel = Depends(deps.get_current_user),
+) -> dict:
+    """Remove an emoji reaction from a message."""
+    # Check if user is a participant
+    participant = db.query(ConversationParticipant).filter(
+        ConversationParticipant.conversation_id == conversation_id,
+        ConversationParticipant.user_id == current_user.id
+    ).first()
+    
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    # Find and remove reaction
+    reaction = db.query(MessageReaction).filter(
+        MessageReaction.message_id == message_id,
+        MessageReaction.user_id == current_user.id,
+        MessageReaction.emoji == emoji
+    ).first()
+    
+    if not reaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reaction not found"
+        )
+    
+    db.delete(reaction)
+    db.commit()
+    
+    # Get updated reactions
+    reactions_query = db.query(
+        MessageReaction.emoji,
+        func.count(MessageReaction.id).label('count'),
+        func.array_agg(MessageReaction.user_id).label('user_ids')
+    ).filter(
+        MessageReaction.message_id == message_id
+    ).group_by(MessageReaction.emoji).all()
+    
+    reactions = [
+        {"emoji": emoji, "count": count, "user_ids": user_ids or []}
+        for emoji, count, user_ids in reactions_query
+    ]
+    
+    # Broadcast reaction update
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if conversation:
+        participant_ids = {p.user_id for p in conversation.participants}
+        
+        background_tasks.add_task(
+            manager.broadcast_to_conversation,
+            conversation_id,
+            {
+                "type": "reaction_update",
+                "data": {
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                    "reactions": reactions
+                }
+            },
+            participant_ids,
+            exclude_user_id=None
+        )
+    
+    return {"action": "removed", "reactions": reactions}
 
 
 # ============== Helper Functions ==============

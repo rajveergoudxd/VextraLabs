@@ -3,6 +3,58 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:acms_app/services/chat_service.dart';
 import 'package:acms_app/services/websocket_service.dart';
+import 'package:acms_app/services/sync_service.dart';
+import 'package:acms_app/repositories/chat_repository.dart';
+
+/// Model for message reaction
+class MessageReaction {
+  final String emoji;
+  final int count;
+  final List<int> userIds;
+
+  MessageReaction({
+    required this.emoji,
+    required this.count,
+    required this.userIds,
+  });
+
+  factory MessageReaction.fromJson(Map<String, dynamic> json) {
+    return MessageReaction(
+      emoji: json['emoji'],
+      count: json['count'],
+      userIds: (json['user_ids'] as List?)?.cast<int>() ?? [],
+    );
+  }
+
+  bool hasUserReacted(int userId) => userIds.contains(userId);
+}
+
+/// Model for reply preview
+class ReplyPreview {
+  final int id;
+  final int? senderId;
+  final String? senderName;
+  final String? content;
+  final String messageType;
+
+  ReplyPreview({
+    required this.id,
+    this.senderId,
+    this.senderName,
+    this.content,
+    required this.messageType,
+  });
+
+  factory ReplyPreview.fromJson(Map<String, dynamic> json) {
+    return ReplyPreview(
+      id: json['id'],
+      senderId: json['sender_id'],
+      senderName: json['sender_name'],
+      content: json['content'],
+      messageType: json['message_type'] ?? 'text',
+    );
+  }
+}
 
 /// Model for a chat message
 class ChatMessage {
@@ -12,12 +64,22 @@ class ChatMessage {
   final String? senderUsername;
   final String? senderFullName;
   final String? senderProfilePicture;
-  final String? content;
+  String? content; // Mutable for editing
   final String messageType; // text, image, video
   final String? mediaUrl;
   final DateTime createdAt;
   bool isRead;
   DateTime? readAt;
+
+  // Reply support
+  final int? replyToId;
+  final ReplyPreview? replyTo;
+
+  // Reactions
+  List<MessageReaction> reactions;
+
+  // Edit tracking
+  DateTime? editedAt;
 
   ChatMessage({
     required this.id,
@@ -32,6 +94,10 @@ class ChatMessage {
     required this.createdAt,
     this.isRead = false,
     this.readAt,
+    this.replyToId,
+    this.replyTo,
+    this.reactions = const [],
+    this.editedAt,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -49,8 +115,22 @@ class ChatMessage {
       createdAt: DateTime.parse(json['created_at']),
       isRead: json['is_read'] ?? false,
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
+      replyToId: json['reply_to_id'],
+      replyTo: json['reply_to'] != null
+          ? ReplyPreview.fromJson(json['reply_to'])
+          : null,
+      reactions:
+          (json['reactions'] as List?)
+              ?.map((r) => MessageReaction.fromJson(r))
+              .toList() ??
+          [],
+      editedAt: json['edited_at'] != null
+          ? DateTime.parse(json['edited_at'])
+          : null,
     );
   }
+
+  bool get isEdited => editedAt != null;
 }
 
 /// Model for a conversation participant
@@ -133,6 +213,12 @@ class Conversation {
 class ChatProvider extends ChangeNotifier {
   final ChatService _chatService = ChatService();
   final WebSocketService _wsService = WebSocketService();
+  final ChatRepository _chatRepository = ChatRepository();
+  final SyncService _syncService = SyncService.instance;
+
+  // Offline state
+  bool _isOffline = false;
+  bool get isOffline => _isOffline;
 
   // Conversations list state
   List<Conversation> _conversations = [];
@@ -182,6 +268,10 @@ class ChatProvider extends ChangeNotifier {
     _setupWebSocketListeners();
   }
 
+  // Additional subscriptions for edit/reactions
+  StreamSubscription? _editSubscription;
+  StreamSubscription? _reactionSubscription;
+
   void _setupWebSocketListeners() {
     _messageSubscription = _wsService.onMessage.listen(_handleNewMessage);
     _readReceiptSubscription = _wsService.onReadReceipt.listen(
@@ -189,19 +279,26 @@ class ChatProvider extends ChangeNotifier {
     );
     _typingSubscription = _wsService.onTyping.listen(_handleTyping);
     _onlineSubscription = _wsService.onOnlineStatus.listen(_handleOnlineStatus);
+    _editSubscription = _wsService.onMessageEdit.listen(_handleMessageEdit);
+    _reactionSubscription = _wsService.onReactionUpdate.listen(
+      _handleReactionUpdate,
+    );
   }
 
-  /// Load all conversations for current user
-  Future<void> loadConversations() async {
+  /// Load all conversations for current user with offline support
+  Future<void> loadConversations({bool forceRefresh = false}) async {
     _isLoadingConversations = true;
     _conversationsError = null;
+    _isOffline = !_syncService.isOnline;
     notifyListeners();
 
     try {
-      final response = await _chatService.getConversations();
-      _conversations = (response['conversations'] as List)
-          .map((json) => Conversation.fromJson(json))
-          .toList();
+      // Use repository for cache-first loading
+      final conversations = await _chatRepository.getConversations(
+        forceRefresh: forceRefresh,
+      );
+      _conversations = conversations;
+      _isOffline = !_syncService.isOnline;
     } catch (e) {
       _conversationsError = 'Failed to load conversations';
       debugPrint('Load conversations error: $e');
@@ -233,23 +330,24 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  /// Enter a chat (load messages and connect WebSocket)
+  /// Enter a chat (load messages and connect WebSocket) with offline support
   Future<void> enterChat(int conversationId) async {
     _currentConversationId = conversationId;
     _messages = [];
     _isLoadingMessages = true;
     _messagesError = null;
+    _isOffline = !_syncService.isOnline;
     notifyListeners();
 
     try {
-      // Load messages
-      final response = await _chatService.getConversationDetail(conversationId);
-      _messages = (response['messages'] as List)
-          .map((json) => ChatMessage.fromJson(json))
-          .toList();
+      // Load messages using repository (cache-first)
+      _messages = await _chatRepository.getMessages(conversationId);
+      notifyListeners(); // Show cached messages immediately
 
-      // Connect WebSocket
-      await _wsService.connect(conversationId);
+      // Connect WebSocket if online
+      if (_syncService.isOnline) {
+        await _wsService.connect(conversationId);
+      }
 
       // Mark as read
       final conversationIndex = _conversations.indexWhere(
@@ -258,6 +356,8 @@ class ChatProvider extends ChangeNotifier {
       if (conversationIndex != -1) {
         _conversations[conversationIndex].unreadCount = 0;
       }
+
+      _isOffline = !_syncService.isOnline;
     } catch (e) {
       _messagesError = 'Failed to load messages';
       debugPrint('Enter chat error: $e');
@@ -422,12 +522,128 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  // ============== Reply Support ==============
+
+  ChatMessage? _replyingTo;
+  ChatMessage? get replyingTo => _replyingTo;
+
+  void setReplyingTo(ChatMessage? message) {
+    _replyingTo = message;
+    notifyListeners();
+  }
+
+  void clearReply() {
+    _replyingTo = null;
+    notifyListeners();
+  }
+
+  /// Send a reply message
+  Future<bool> sendReply(String content) async {
+    if (_currentConversationId == null ||
+        _replyingTo == null ||
+        content.trim().isEmpty) {
+      return false;
+    }
+
+    _isSending = true;
+    notifyListeners();
+
+    try {
+      _wsService.sendMessage(content: content, replyToId: _replyingTo!.id);
+      _replyingTo = null; // Clear reply after sending
+      return true;
+    } catch (e) {
+      debugPrint('Send reply error: $e');
+      return false;
+    } finally {
+      _isSending = false;
+      notifyListeners();
+    }
+  }
+
+  // ============== Edit Message ==============
+
+  /// Edit a message (sender only, within 15 min limit)
+  Future<bool> editMessage(int messageId, String newContent) async {
+    if (_currentConversationId == null || newContent.trim().isEmpty) {
+      return false;
+    }
+
+    try {
+      await _chatService.editMessage(
+        _currentConversationId!,
+        messageId,
+        newContent,
+      );
+
+      // Optimistic update
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].content = newContent;
+        _messages[index].editedAt = DateTime.now();
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Edit message error: $e');
+      return false;
+    }
+  }
+
+  void _handleMessageEdit(Map<String, dynamic> data) {
+    final messageId = data['message_id'] as int;
+    final content = data['content'] as String;
+    final editedAt = DateTime.parse(data['edited_at']);
+
+    final index = _messages.indexWhere((m) => m.id == messageId);
+    if (index != -1) {
+      _messages[index].content = content;
+      _messages[index].editedAt = editedAt;
+      notifyListeners();
+    }
+  }
+
+  // ============== Reactions ==============
+
+  /// Toggle reaction on a message
+  Future<bool> toggleReaction(int messageId, String emoji) async {
+    if (_currentConversationId == null) return false;
+
+    try {
+      await _chatService.toggleReaction(
+        _currentConversationId!,
+        messageId,
+        emoji,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Toggle reaction error: $e');
+      return false;
+    }
+  }
+
+  void _handleReactionUpdate(Map<String, dynamic> data) {
+    final messageId = data['message_id'] as int;
+    final reactionsData = data['reactions'] as List? ?? [];
+
+    final index = _messages.indexWhere((m) => m.id == messageId);
+    if (index != -1) {
+      _messages[index].reactions = reactionsData
+          .map((r) => MessageReaction.fromJson(r))
+          .toList();
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _messageSubscription?.cancel();
     _readReceiptSubscription?.cancel();
     _typingSubscription?.cancel();
     _onlineSubscription?.cancel();
+    _editSubscription?.cancel();
+    _reactionSubscription?.cancel();
     _wsService.disconnect();
     super.dispose();
   }

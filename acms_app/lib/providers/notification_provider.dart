@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:acms_app/services/notification_service.dart';
+import 'package:acms_app/services/sync_service.dart';
+import 'package:acms_app/repositories/notification_repository.dart';
 
 /// Model for a notification item
 class NotificationItem {
@@ -72,6 +74,9 @@ class NotificationActor {
 /// Provider for managing notifications state
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
+  final NotificationRepository _notificationRepository =
+      NotificationRepository();
+  final SyncService _syncService = SyncService.instance;
 
   List<NotificationItem> _notifications = [];
   int _unreadCount = 0;
@@ -79,6 +84,7 @@ class NotificationProvider extends ChangeNotifier {
   String? _error;
 
   bool _hasMore = false;
+  bool _isOffline = false;
 
   // Filter state
   // 0: All, 1: Mentions, 2: System
@@ -90,8 +96,9 @@ class NotificationProvider extends ChangeNotifier {
   String? get error => _error;
   bool get hasMore => _hasMore;
   int get selectedFilterIndex => _selectedFilterIndex;
+  bool get isOffline => _isOffline;
 
-  /// Load notifications (initial load or refresh)
+  /// Load notifications (initial load or refresh) with offline support
   Future<void> loadNotifications({bool refresh = false}) async {
     if (refresh) {
       _isLoading = true;
@@ -99,6 +106,7 @@ class NotificationProvider extends ChangeNotifier {
     } else if (_notifications.isEmpty) {
       _isLoading = true;
     }
+    _isOffline = !_syncService.isOnline;
 
     try {
       String? typeFilter;
@@ -108,15 +116,21 @@ class NotificationProvider extends ChangeNotifier {
         typeFilter = 'system';
       }
 
-      final response = await _notificationService.getNotifications(
+      // Use repository for cache-first loading
+      final response = await _notificationRepository.getNotifications(
         skip: refresh ? 0 : _notifications.length,
         limit: 20,
-        type: typeFilter,
+        typeFilter: typeFilter,
+        forceRefresh: refresh,
       );
 
       final List<dynamic> results = response['notifications'];
       final newNotifications = results
-          .map((json) => NotificationItem.fromJson(json))
+          .map(
+            (json) => json is NotificationItem
+                ? json
+                : NotificationItem.fromJson(json as Map<String, dynamic>),
+          )
           .toList();
 
       if (refresh) {
@@ -128,6 +142,7 @@ class NotificationProvider extends ChangeNotifier {
       _unreadCount = response['unread_count'] ?? 0;
       _hasMore = response['has_more'] ?? false;
       _error = null;
+      _isOffline = !_syncService.isOnline;
     } catch (e) {
       _error = 'Failed to load notifications';
       debugPrint('Notification load error: $e');

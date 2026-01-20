@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:acms_app/services/post_service.dart';
 import 'package:acms_app/services/social_service.dart';
+import 'package:acms_app/services/sync_service.dart';
+import 'package:acms_app/repositories/post_repository.dart';
 
 class InspireProvider extends ChangeNotifier {
   final PostService _postService = PostService();
   final SocialService _socialService = SocialService();
+  final PostRepository _postRepository = PostRepository();
+  final SyncService _syncService = SyncService.instance;
 
   List<dynamic> _posts = [];
   bool _isLoading = false;
   bool _hasMore = true;
   int _currentPage = 1;
   String? _error;
+  bool _isOffline = false;
 
   List<dynamic> get posts => _posts;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
   String? get error => _error;
+  bool get isOffline => _isOffline;
 
+  /// Load feed with offline support
   Future<void> loadFeed({bool refresh = false}) async {
     if (refresh) {
       _currentPage = 1;
@@ -28,10 +35,15 @@ class InspireProvider extends ChangeNotifier {
     if (!_hasMore || (_isLoading && !refresh)) return;
 
     _isLoading = true;
+    _isOffline = !_syncService.isOnline;
     notifyListeners();
 
     try {
-      final data = await _postService.getFeed(page: _currentPage);
+      // Use repository for cache-first loading
+      final data = await _postRepository.getFeed(
+        page: _currentPage,
+        forceRefresh: refresh,
+      );
       final newPosts = data['items'] as List;
       final total = data['total'] as int;
 
@@ -43,6 +55,7 @@ class InspireProvider extends ChangeNotifier {
 
       _hasMore = _posts.length < total;
       if (_hasMore) _currentPage++;
+      _isOffline = !_syncService.isOnline;
     } catch (e) {
       _error = e.toString();
     } finally {

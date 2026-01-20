@@ -25,6 +25,10 @@ class WebSocketService {
   final _onlineStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
   final _connectionStateController = StreamController<bool>.broadcast();
+  final _messageEditController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _reactionUpdateController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   // Public streams
   Stream<Map<String, dynamic>> get onMessage => _messageController.stream;
@@ -34,6 +38,10 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get onOnlineStatus =>
       _onlineStatusController.stream;
   Stream<bool> get onConnectionStateChange => _connectionStateController.stream;
+  Stream<Map<String, dynamic>> get onMessageEdit =>
+      _messageEditController.stream;
+  Stream<Map<String, dynamic>> get onReactionUpdate =>
+      _reactionUpdateController.stream;
 
   int? _currentConversationId;
   bool _isConnected = false;
@@ -106,11 +114,12 @@ class WebSocketService {
     debugPrint('WebSocket: Disconnected');
   }
 
-  /// Send a chat message
+  /// Send a chat message (with optional reply)
   void sendMessage({
     required String content,
     String messageType = 'text',
     String? mediaUrl,
+    int? replyToId,
   }) {
     if (!_isConnected || _channel == null) {
       debugPrint('WebSocket: Cannot send message - not connected');
@@ -123,6 +132,7 @@ class WebSocketService {
         'content': content,
         'message_type': messageType,
         if (mediaUrl != null) 'media_url': mediaUrl,
+        if (replyToId != null) 'reply_to_id': replyToId,
       },
     };
 
@@ -171,6 +181,12 @@ class WebSocketService {
           break;
         case 'online_status':
           _onlineStatusController.add(eventData);
+          break;
+        case 'message_edit':
+          _messageEditController.add(eventData);
+          break;
+        case 'reaction_update':
+          _reactionUpdateController.add(eventData);
           break;
         default:
           debugPrint('WebSocket: Unknown message type: $type');
@@ -228,5 +244,7 @@ class WebSocketService {
     _typingController.close();
     _onlineStatusController.close();
     _connectionStateController.close();
+    _messageEditController.close();
+    _reactionUpdateController.close();
   }
 }

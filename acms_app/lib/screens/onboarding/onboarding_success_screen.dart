@@ -1,9 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'package:acms_app/services/push_notification_service.dart';
+import 'package:acms_app/providers/settings_provider.dart';
 
-class OnboardingSuccessScreen extends StatelessWidget {
+class OnboardingSuccessScreen extends StatefulWidget {
   const OnboardingSuccessScreen({super.key});
+
+  @override
+  State<OnboardingSuccessScreen> createState() =>
+      _OnboardingSuccessScreenState();
+}
+
+class _OnboardingSuccessScreenState extends State<OnboardingSuccessScreen> {
+  bool _permissionRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Request push notification permission after a brief delay
+    // to let the success screen render first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestNotificationPermission();
+    });
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    if (_permissionRequested) return;
+    _permissionRequested = true;
+
+    // Small delay to let user see the success screen first
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!mounted) return;
+
+    final pushService = PushNotificationService();
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+
+    try {
+      // Request permission - this triggers the Android/iOS system dialog
+      final granted = await pushService.requestPermission();
+
+      debugPrint('[Onboarding] Push notification permission granted: $granted');
+
+      // Sync the permission result with backend settings
+      // This ensures the settings toggle reflects the actual permission state
+      await settingsProvider.updatePushNotifications(granted);
+    } catch (e) {
+      debugPrint('[Onboarding] Error requesting notification permission: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,14 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:acms_app/theme/app_theme.dart';
+import 'package:acms_app/providers/social_connections_provider.dart';
 
-class ConnectSocialScreen extends StatelessWidget {
+class ConnectSocialScreen extends StatefulWidget {
   const ConnectSocialScreen({super.key});
+
+  @override
+  State<ConnectSocialScreen> createState() => _ConnectSocialScreenState();
+}
+
+class _ConnectSocialScreenState extends State<ConnectSocialScreen> {
+  bool _isConnecting = false;
+  String? _connectingPlatform;
+
+  Future<void> _connectPlatform(String platform) async {
+    if (_isConnecting) return;
+
+    setState(() {
+      _isConnecting = true;
+      _connectingPlatform = platform;
+    });
+
+    try {
+      final provider = Provider.of<SocialConnectionsProvider>(
+        context,
+        listen: false,
+      );
+      final authResponse = await provider.getAuthorizationUrl(platform);
+
+      if (authResponse == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to start $platform connection')),
+          );
+        }
+        return;
+      }
+
+      // Use flutter_web_auth_2 to handle OAuth in external browser
+      final result = await FlutterWebAuth2.authenticate(
+        url: authResponse.authorizationUrl,
+        callbackUrlScheme: 'vextra',
+      );
+
+      // Parse the callback URL to extract code and state
+      final uri = Uri.parse(result);
+      final code = uri.queryParameters['code'];
+      final state = uri.queryParameters['state'];
+
+      if (code != null && state != null) {
+        final success = await provider.handleCallback(platform, code, state);
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$platform connected successfully!')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to connect $platform')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('OAuth error for $platform: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connection cancelled or failed')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _connectingPlatform = null;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final connectionsProvider = Provider.of<SocialConnectionsProvider>(context);
 
     return Scaffold(
       body: SafeArea(
@@ -21,24 +99,27 @@ class ConnectSocialScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    onPressed: () => context.push('/mic-permission'),
-                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new),
                     style: IconButton.styleFrom(
                       backgroundColor: isDark
                           ? Colors.white.withValues(alpha: 0.1)
                           : Colors.black.withValues(alpha: 0.05),
                     ),
                   ),
-                  Row(
+                  Column(
                     children: [
-                      _buildDot(AppColors.primary.withValues(alpha: 0.2)),
-                      const SizedBox(width: 4),
-                      _buildDot(AppColors.primary),
-                      const SizedBox(width: 4),
-                      _buildDot(AppColors.primary.withValues(alpha: 0.2)),
+                      Text(
+                        "STEP 2 OF 3",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.red[200] : AppColors.primary,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(width: 40), // Spacer
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -104,6 +185,11 @@ class ConnectSocialScreen extends StatelessWidget {
                       color: isDark ? Colors.white : Colors.black,
                       iconColor: isDark ? Colors.black : Colors.white,
                       isDark: isDark,
+                      platform: 'twitter',
+                      isConnected: connectionsProvider.isConnected('twitter'),
+                      isConnecting:
+                          _isConnecting && _connectingPlatform == 'twitter',
+                      onConnect: () => _connectPlatform('twitter'),
                     ),
                     const SizedBox(height: 12),
                     _buildSocialItem(
@@ -113,6 +199,11 @@ class ConnectSocialScreen extends StatelessWidget {
                       icon: FontAwesomeIcons.linkedin,
                       color: const Color(0xFF0077b5),
                       isDark: isDark,
+                      platform: 'linkedin',
+                      isConnected: connectionsProvider.isConnected('linkedin'),
+                      isConnecting:
+                          _isConnecting && _connectingPlatform == 'linkedin',
+                      onConnect: () => _connectPlatform('linkedin'),
                     ),
 
                     const SizedBox(height: 24),
@@ -162,7 +253,9 @@ class ConnectSocialScreen extends StatelessWidget {
               child: Column(
                 children: [
                   ElevatedButton(
-                    onPressed: () => context.push('/setup-complete'),
+                    onPressed: _isConnecting
+                        ? null
+                        : () => context.go('/onboarding-success'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -183,7 +276,9 @@ class ConnectSocialScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: () => context.push('/setup-complete'),
+                    onPressed: _isConnecting
+                        ? null
+                        : () => context.go('/onboarding-success'),
                     style: TextButton.styleFrom(
                       foregroundColor: isDark
                           ? Colors.white.withValues(alpha: 0.6)
@@ -203,14 +298,6 @@ class ConnectSocialScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDot(Color color) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-
   Widget _buildSocialItem(
     BuildContext context, {
     required String name,
@@ -219,9 +306,12 @@ class ConnectSocialScreen extends StatelessWidget {
     Color? color,
     LinearGradient? gradient,
     Color iconColor = Colors.white,
-    bool connected = false,
     required bool isDark,
     bool comingSoon = false,
+    String? platform,
+    bool isConnected = false,
+    bool isConnecting = false,
+    VoidCallback? onConnect,
   }) {
     return Opacity(
       opacity: comingSoon ? 0.6 : 1.0,
@@ -311,7 +401,13 @@ class ConnectSocialScreen extends StatelessWidget {
                   ),
                 ),
               )
-            else if (connected)
+            else if (isConnecting)
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (isConnected)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -338,7 +434,7 @@ class ConnectSocialScreen extends StatelessWidget {
               )
             else
               ElevatedButton(
-                onPressed: () {},
+                onPressed: onConnect,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

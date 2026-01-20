@@ -48,6 +48,17 @@ class Message(Base):
         nullable=True
     )
     
+    # Reply support - reference to the message being replied to
+    reply_to_id = Column(
+        Integer,
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    
+    # Edit tracking
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+    original_content = Column(Text, nullable=True)  # Store original if edited
+    
     # Timestamps and status
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     read_at = Column(DateTime(timezone=True), nullable=True)  # When recipient read
@@ -56,12 +67,15 @@ class Message(Base):
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", backref="sent_messages")
+    reply_to = relationship("Message", remote_side="Message.id", backref="replies")
+    reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
 
     # Indexes for performance
     __table_args__ = (
         Index('idx_message_conversation_id', 'conversation_id'),
         Index('idx_message_sender_id', 'sender_id'),
         Index('idx_message_created_at', 'created_at'),
+        Index('idx_message_reply_to_id', 'reply_to_id'),
     )
 
     def __repr__(self):

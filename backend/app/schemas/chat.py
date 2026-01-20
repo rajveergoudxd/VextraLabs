@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, ForwardRef
 from enum import Enum
 
 
@@ -20,6 +20,12 @@ class MessageCreate(BaseModel):
     message_type: MessageTypeEnum = MessageTypeEnum.TEXT
     media_url: Optional[str] = None
     shared_post_id: Optional[int] = None  # For POST_SHARE type
+    reply_to_id: Optional[int] = None  # Reply to another message
+
+
+class MessageEdit(BaseModel):
+    """Schema for editing a message."""
+    content: str
 
 
 class MessageSender(BaseModel):
@@ -31,6 +37,27 @@ class MessageSender(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ReactionInfo(BaseModel):
+    """Aggregated reaction info for a message."""
+    emoji: str
+    count: int
+    user_ids: List[int]  # User IDs who reacted with this emoji
+
+
+class ReactionCreate(BaseModel):
+    """Schema for adding a reaction."""
+    emoji: str  # ❤️, 👍, 😂, 😮, 😢, 🙏
+
+
+class ReplyPreview(BaseModel):
+    """Minimal info for replied-to message preview."""
+    id: int
+    sender_id: Optional[int]
+    sender_name: Optional[str]
+    content: Optional[str]
+    message_type: str
 
 
 class MessageResponse(BaseModel):
@@ -47,6 +74,13 @@ class MessageResponse(BaseModel):
     created_at: datetime
     is_read: bool
     read_at: Optional[datetime]
+    # Reply support
+    reply_to_id: Optional[int] = None
+    reply_to: Optional[ReplyPreview] = None
+    # Reactions
+    reactions: List[ReactionInfo] = []
+    # Edit tracking
+    edited_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -107,7 +141,7 @@ class ConversationDetailResponse(BaseModel):
 
 class WebSocketMessage(BaseModel):
     """Schema for WebSocket message payloads."""
-    type: str  # 'message', 'read_receipt', 'typing', etc.
+    type: str  # 'message', 'read_receipt', 'typing', 'message_edit', 'reaction_update', etc.
     data: dict
 
 
@@ -129,3 +163,18 @@ class TypingEvent(BaseModel):
     conversation_id: int
     user_id: int
     is_typing: bool
+
+
+class MessageEditEvent(BaseModel):
+    """Event when a message is edited."""
+    message_id: int
+    conversation_id: int
+    content: str
+    edited_at: datetime
+
+
+class ReactionUpdateEvent(BaseModel):
+    """Event when a reaction is added/removed."""
+    message_id: int
+    conversation_id: int
+    reactions: List[ReactionInfo]
