@@ -22,3 +22,21 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+subprojects {
+    afterEvaluate {
+        // Fix for isar_flutter_libs missing namespace in AGP 8+
+        if (project.name == "isar_flutter_libs") {
+            try {
+                val android = project.extensions.findByName("android")
+                if (android != null) {
+                    val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
+                    setNamespace.invoke(android, "dev.isar.isar_flutter_libs")
+                    println("Forced namespace for isar_flutter_libs")
+                }
+            } catch (e: Exception) {
+                println("Failed to force namespace for isar_flutter_libs: ${e.message}")
+            }
+        }
+    }
+}
